@@ -1,0 +1,52 @@
+name: Build & Deploy Backend
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'traffic_backend/**'
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up JDK 21
+      uses: actions/setup-java@v3
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: maven
+    
+    - name: Build with Maven
+      working-directory: ./traffic_backend
+      run: mvn clean package -DskipTests
+    
+    - name: Run Tests
+      working-directory: ./traffic_backend
+      run: mvn test
+    
+    - name: SonarQube Scan (Optional)
+      working-directory: ./traffic_backend
+      run: mvn sonar:sonar -Dsonar.projectKey=traffic_backend
+      env:
+        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        SONAR_LOGIN: ${{ secrets.SONAR_LOGIN }}
+      continue-on-error: true
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy to Render
+      run: |
+        curl https://api.render.com/deploy/srv-${{ secrets.RENDER_SERVICE_ID }}?key=${{ secrets.RENDER_DEPLOY_KEY }}
+      continue-on-error: true

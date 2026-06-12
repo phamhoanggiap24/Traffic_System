@@ -1,0 +1,107 @@
+/* ĐỊNH NGHĨA BIẾN MÀU SẮC */
+:root {
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --admin-color: #fbbf24;
+  --bg-main: #f8fafc;
+  --sidebar-bg: #0f172a;
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+  --white: #ffffff;
+}
+
+/* RESET CƠ BẢN */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  overflow: hidden;
+}
+
+/* BỐ CỤC CHÍNH (MAIN LAYOUT) */
+.main-layout {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Khung chứa nội dung bên phải (bao gồm Header và View) */
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Khu vực hiển thị Component (Map, Dashboard,...) */
+.view-container {
+  position: relative;
+  flex: 1;
+  overflow: auto !important;
+}
+
+/* CÁC THÀNH PHẦN DÙNG CHUNG (REUSABLE COMPONENTS) */
+/* Thẻ Card bao quanh các form hoặc bảng */
+.form-card {
+  background: var(--white);
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-color);
+  margin-bottom: 20px;
+}
+
+/* Badge trạng thái cho bảng quản lý */
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-badge.ACTIVE { background: #dcfce7; color: #166534; }
+.status-badge.LOCKED { background: #fee2e2; color: #991b1b; }
+
+/* Nút bấm chung */
+.btn-primary {
+  background-color: var(--primary);
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+}
+
+/* TIỆN ÍCH HIỂN THỊ */
+.text-center { text-align: center; }
+.mt-20 { margin-top: 20px; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+
+/* Custom Scrollbar cho trình duyệt hiện đại */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

@@ -1,0 +1,14 @@
+.auth-header { text-align: center; margin-bottom: 25px; }
+.auth-header h2 { color: #1e293b; font-size: 24px; margin-bottom: 5px; }
+.auth-header p { color: #64748b; font-size: 14px; }
+
+.auth-footer {
+  margin-top: 20px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #2563eb;
+  font-weight: 500;
+}
+.auth-footer span { cursor: pointer; }
+.auth-footer span:hover { text-decoration: underline; }
