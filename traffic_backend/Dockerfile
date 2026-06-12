@@ -14,5 +14,12 @@ COPY --from=builder /app/target/traffic_backend-1.0-SNAPSHOT.jar app.jar
 # Expose port
 EXPOSE 8080
 
-# Run application
-ENTRYPOINT ["sh", "-c", "java -Dspring.datasource.url=${SPRING_DATASOURCE_URL} -Dspring.datasource.username=${SPRING_DATASOURCE_USERNAME} -Dspring.datasource.password=${SPRING_DATASOURCE_PASSWORD} -Djwt.secret=${JWT_SECRET} -Dtomtom.api.key=${TOMTOM_API_KEY} -jar app.jar"]
+# Gom toàn bộ biến môi trường vào cấu hình Java trước khi chạy
+ENV JAVA_OPTS="-Dspring.datasource.url=${SPRING_DATASOURCE_URL} \
+               -Dspring.datasource.username=${SPRING_DATASOURCE_USERNAME} \
+               -Dspring.datasource.password=${SPRING_DATASOURCE_PASSWORD} \
+               -Djwt.secret=${JWT_SECRET} \
+               -Dtomtom.api.key=${TOMTOM_API_KEY}"
+
+# Lệnh khởi chạy ứng dụng
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
