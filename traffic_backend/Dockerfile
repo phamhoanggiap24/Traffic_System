@@ -15,4 +15,4 @@ COPY --from=builder /app/target/traffic_backend-1.0-SNAPSHOT.jar app.jar
 EXPOSE 8080
 
 # Run application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["sh", "-c", "java -Dspring.datasource.url=${SPRING_DATASOURCE_URL} -Dspring.datasource.username=${SPRING_DATASOURCE_USERNAME} -Dspring.datasource.password=${SPRING_DATASOURCE_PASSWORD} -Djwt.secret=${JWT_SECRET} -Dtomtom.api.key=${TOMTOM_API_KEY} -jar app.jar"]
