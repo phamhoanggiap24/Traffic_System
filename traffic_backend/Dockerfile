@@ -20,6 +20,10 @@ CMD java -Dspring.datasource.url=${SPRING_DATASOURCE_URL} \
          -Dspring.datasource.password=${SPRING_DATASOURCE_PASSWORD} \
          -Dspring.datasource.driver-class-name=${SPRING_DATASOURCE_DRIVER_CLASS_NAME} \
          -Dspring.jpa.properties.hibernate.dialect=${SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT} \
-         -Djwt.secret=${JWT_SECRET} \
+         -Djwt.secret=${jwt.secret} \
          -Dtomtom.api.key=${TOMTOM_API_KEY} \
+         -Dspring.mail.host=${MAIL_HOST} \
+         -Dspring.mail.port=${MAIL_PORT} \
+         -Dspring.mail.username=${MAIL_USERNAME} \
+         -Dspring.mail.password=${MAIL_PASSWORD} \
          -jar app.jar
