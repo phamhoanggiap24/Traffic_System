@@ -8,6 +8,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import java.time.temporal.ChronoUnit;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -17,6 +20,8 @@ import java.util.List;
 @RequestMapping("/api/admin/analytics")
 @CrossOrigin(origins = "*")
 public class TrafficAnalyticsController {
+
+    private static final Logger logger = LoggerFactory.getLogger(TrafficAnalyticsController.class);
 
     @Autowired
     private TrafficAnalyticsService analyticsService;
@@ -72,6 +77,13 @@ public class TrafficAnalyticsController {
             @RequestParam(required = false) Double radius,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
+        
+        if (startDate != null && endDate != null) {
+            long daysDiff = ChronoUnit.DAYS.between(startDate, endDate);
+            if (daysDiff > 1) {
+                startDate = endDate.minusDays(1);
+            }
+        }
 
         if (lat == null || lng == null) {
             return ResponseEntity.ok(analyticsService.getHourlySpeedEvolution(createFilter(lat, lng, radius, startDate, endDate)));
@@ -87,7 +99,9 @@ public class TrafficAnalyticsController {
         try {
             TrafficResponse.FlowSegmentData realTimeData = trafficService.getTrafficFlow(lat, lng);
 
-            if (realTimeData != null) {
+            if (realTimeData != null && realTimeData.getCurrentSpeed() > 0) {
+                logger.info("Dữ liệu tốc độ real-time thu được: {} km/h. Đang tạo dữ liệu giờ mô phỏng.", realTimeData.getCurrentSpeed());
+                
                 List<TrafficSpeedAnalyticsResponse> dynamicSpeedList = new ArrayList<>();
                 double currentRealSpeed = (double) realTimeData.getCurrentSpeed();
                 int currentHour = LocalDateTime.now().getHour();
@@ -110,11 +124,14 @@ public class TrafficAnalyticsController {
                     dynamicSpeedList.add(new TrafficSpeedAnalyticsResponse(hour, finalSpeed));
                 }
                 return ResponseEntity.ok(dynamicSpeedList);
+            } else {
+                logger.warn("API real-time trả về dữ liệu không hợp lệ. Sử dụng dữ liệu lịch sử trống làm dự phòng.");
             }
         } catch (Exception e) {
-            System.err.println("Lỗi gọi dữ liệu thời gian thực: " + e.getMessage());
+            logger.error("Lỗi khi lấy dữ liệu giao thông real-time: {}", e.getMessage(), e);
         }
 
-        return ResponseEntity.ok(dbData);
+        logger.warn("Không có dữ liệu tốc độ cho vị trí ({}, {}). Trả về kết quả trống.", lat, lng);
+        return ResponseEntity.ok(new ArrayList<>());
     }
 }
