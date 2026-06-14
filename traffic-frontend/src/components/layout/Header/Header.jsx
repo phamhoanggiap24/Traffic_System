@@ -8,8 +8,8 @@ import './Header.css';
 const Header = ({ activeTab, user, onLogout, onUserUpdate, onMenuToggle, menuOpen }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotiDropdown, setShowNotiDropdown] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-
+  const [isProfileOpen, setIsProfileOpen] = useState(false);  // State để trigger re-render mỗi giây để hiển thị thời gian thực tế
+  const [, setTimeUpdate] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -44,6 +44,14 @@ const Header = ({ activeTab, user, onLogout, onUserUpdate, onMenuToggle, menuOpe
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, [user]);
+
+  // Update thời gian hiển thị mỗi giây để hiển thị thời gian thực tế
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeUpdate(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // XỬ LÝ KHI BẤM VÀO ĐỌC 1 THÔNG BÁO
   const handleMarkAsRead = async (id, currentStatus) => {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../../../api/axiosConfig';
 import './ReportList.css';
 import { MapPin, Search, Trash2, AlertTriangle, CheckCircle, RefreshCw, Clock, ChevronDown, Calendar, EyeOff, Image as ImageIcon, X } from 'lucide-react';
-import { formatTimeWithTimezone } from '../../../utils/timeFormatter';
+import { getRelativeTime } from '../../../utils/timeFormatter';
 
 const ReportList = ({ setActiveTab }) => {
   const [reports, setReports] = useState([]);
@@ -11,6 +11,9 @@ const ReportList = ({ setActiveTab }) => {
 
   // State để lưu ảnh khi được click phóng to
   const [modalImage, setModalImage] = useState(null);
+  
+  // State để trigger re-render mỗi giây để cập nhật thời gian thực
+  const [, setTimeUpdate] = useState(0);
 
   // States cho bộ lọc
   const [searchUser, setSearchUser] = useState("");
@@ -44,6 +47,14 @@ const ReportList = ({ setActiveTab }) => {
     });
     resizeObserver.observe(containerRef.current);
     return () => resizeObserver.disconnect();
+  }, []);
+
+  // Update thời gian thực mỗi giây để hiển thị "5 phút trước", "10 phút trước" v.v.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeUpdate(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   // Tính trạng thái thực tế dựa theo từng loại sự cố
@@ -210,7 +221,8 @@ const ReportList = ({ setActiveTab }) => {
               src={modalImage.startsWith('http') ? modalImage : `http://localhost:8080${modalImage}`}
               alt="Hình ảnh sự cố đính kèm thực tế"
               onError={(e) => {
-                e.target.src = "https://placehold.co/600x400?text=Khong+The+Tai+Hinh+Anh";
+                console.error('Lỗi tải hình ảnh:', e.target.src);
+                e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='400'%3E%3Crect fill='%23f0f0f0' width='600' height='400'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='20' fill='%23999' text-anchor='middle' dy='.3em'%3EKhông thể tải hình ảnh%3C/text%3E%3C/svg%3E";
               }}
             />
           </div>
@@ -303,7 +315,7 @@ const ReportList = ({ setActiveTab }) => {
                   const effectiveStatus = getEffectiveStatus(item);
                   return (
                     <tr key={item.baoCaoId || item.id}>
-                      <td>{formatTimeWithTimezone(item.thoiGianBaoCao)}</td>
+                      <td>{getRelativeTime(item.thoiGianBaoCao)}</td>
                       <td style={{ fontWeight: '600', color: '#1e293b' }}>{item.tenDangNhap}</td>
                       <td style={{ textAlign: 'center' }}>
                         <span className="incident-type">{item.tenLoaiSuCo}</span>

@@ -7,7 +7,7 @@ import ReactDOM from 'react-dom';
 import { Navigation, Search, CheckCircle, Trash2, AlertTriangle, XCircle, MapPin, EyeOff, Image } from 'lucide-react';
 import ReportForm from '../../user/ReportForm/ReportForm';
 import api from '../../../api/axiosConfig';
-import { formatTimeWithTimezone } from '../../../utils/timeFormatter';
+import { getRelativeTime } from '../../../utils/timeFormatter';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -111,7 +111,7 @@ const IncidentPopupContent = ({ data, userRole, fetchAddress, handleAdminAction 
             )}
             <p><strong>Mô tả:</strong> {data.moTa || "Không có mô tả"}</p>
             <p><strong>Vị trí:</strong> {address}</p>
-            <p><strong>Thời gian:</strong> {data.thoiGianBaoCao ? formatTimeWithTimezone(data.thoiGianBaoCao) : "Vừa xong"}</p>
+            <p><strong>Thời gian:</strong> {data.thoiGianBaoCao ? getRelativeTime(data.thoiGianBaoCao) : "Vừa xong"}</p>
 
             {imageUrl && (
               <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -181,6 +181,8 @@ const TrafficMap = () => {
   const [suggestions, setSuggestions] = useState({ type: '', data: [] });
   const [routesData, setRoutesData] = useState([]);
   const [activeRouteIndex, setActiveRouteIndex] = useState(0);
+  // State để trigger re-render mỗi giây để cập nhật thời gian thực
+  const [, setTimeUpdate] = useState(0);
 
   const [activeInput,setActiveInput] = useState('start');
   const activeInputRef = useRef('start');
@@ -381,6 +383,14 @@ const TrafficMap = () => {
   };
 
   useEffect(() => { fetchIncidents(); }, []);
+
+  // Update thời gian thực mỗi giây để hiển thị "5 phút trước", "10 phút trước" v.v.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeUpdate(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (selectedPoint && markerRef.current) { markerRef.current.openPopup(); }

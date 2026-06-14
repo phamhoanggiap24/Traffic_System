@@ -108,10 +108,7 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             Pageable pageable
     );
 
-    @Query("SELECT COUNT(b) FROM BaoCaoSuCo b WHERE b.trangThai IN (com.traffic.common.ReportStatus.CHO_XAC_MINH, com.traffic.common.ReportStatus.NGHI_VAN) AND (" +
-            "(b.loaiSuCo.loaiSuCoId IN (1, 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) <= 30) OR " +
-            "(b.loaiSuCo.loaiSuCoId IN (3, 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) <= 60)" +
-            ")")
+    @Query("SELECT COUNT(b) FROM BaoCaoSuCo b WHERE b.trangThai IN (com.traffic.common.ReportStatus.CHO_XAC_MINH, com.traffic.common.ReportStatus.NGHI_VAN)")
     long countPendingReports(@Param("now") LocalDateTime now);
 
     // CÁC PHƯƠNG THỨC LỌC BÁN KÍNH
