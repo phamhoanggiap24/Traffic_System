@@ -21,7 +21,7 @@ import java.util.List;
 public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
 
     // =========================================================================
-    // 1. CÁC HÀM THỐNG KÊ TOÀN HỆ THỐNG (Chỉ tính các báo cáo hợp lệ, đang hiển thị)
+    // 1. CÁC HÀM THỐNG KÊ TOÀN HỆ THỐNG
     // =========================================================================
     @Query("SELECT COUNT(b) FROM BaoCaoSuCo b WHERE b.trangThai IN (com.traffic.common.ReportStatus.DA_XAC_MINH, com.traffic.common.ReportStatus.AN_HIEN_THI)")
     long countAllVerifiedReports();
@@ -57,7 +57,7 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             @Param("endDate") LocalDateTime endDate);
 
     // =========================================================================
-    // 2. BỘ LỌC DANH SÁCH QUẢN LÝ (FIX LỖI TRẠNG THÁI VÀ QUÁ HẠN CHƯA DUYỆT)
+    // 2. BỘ LỌC DANH SÁCH QUẢN LÝ (ĐÃ FIX LỖI CÚ PHÁP VÀ LOGIC QUÁ HẠN)
     // =========================================================================
     @Query("SELECT b FROM BaoCaoSuCo b WHERE " +
             "(:tenDangNhap IS NULL OR b.taiKhoan.tenDangNhap LIKE %:tenDangNhap%) AND " +
@@ -66,7 +66,6 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             "(b.trangThai != com.traffic.common.ReportStatus.DA_XOA) AND " +
             "(" +
             "  (:trangThai IS NULL) OR " +
-            "  {0} " + // Logic động xử lý bộ lọc trạng thái tại Service hoặc viết tường minh dưới đây:
             "  (:trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH AND b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH AND (" +
             "       (b.loaiSuCo.loaiSuCoId IN (1, 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) <= 30) OR " +
             "       (b.loaiSuCo.loaiSuCoId IN (3, 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) <= 60)" +
@@ -88,7 +87,6 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             Pageable pageable
     );
 
-    // Tìm kiếm các báo cáo chưa duyệt nhưng đã hết thời gian chờ xử lý (Báo cáo quá hạn)
     @Query("SELECT b FROM BaoCaoSuCo b WHERE " +
             "(:tenDangNhap IS NULL OR b.taiKhoan.tenDangNhap LIKE %:tenDangNhap%) AND " +
             "(:loaiSuCoId IS NULL OR b.loaiSuCo.loaiSuCoId = :loaiSuCoId) AND " +
@@ -106,7 +104,6 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             Pageable pageable
     );
 
-    // 🌟 SỬA ĐỔI: Hàm đếm chuẩn số lượng Badge thông báo chưa duyệt (Còn trong hạn xử lý)
     @Query("SELECT COUNT(b) FROM BaoCaoSuCo b WHERE " +
             "b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH AND (" +
             "  (b.loaiSuCo.loaiSuCoId IN (1, 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) <= 30) OR " +
