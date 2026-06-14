@@ -51,20 +51,28 @@ const ReportList = ({ setActiveTab }) => {
         return item.trangThai;
       }
 
-      const reportTime = new Date(item.thoiGianBaoCao).getTime();
-      const currentTime = new Date().getTime();
-      const timeDiff = currentTime - reportTime;
+      // Kiểm tra thời gian hết hạn
+      try {
+        const reportTime = new Date(item.thoiGianBaoCao);
+        const currentTime = new Date();
+        const timeDiffMs = currentTime.getTime() - reportTime.getTime();
 
-      // Xác định cấu hình thời gian hết hạn
-      let expireHours = 24;
-      if (item.tenLoaiSuCo === 'Ùn tắc' || item.tenLoaiSuCo === 'Tai nạn' || item.loaiSuCoId === 1 || item.loaiSuCoId === 2) {
-        expireHours = 3;
-      }
-      const expireLimit = expireHours * 60 * 60 * 1000;
+        // Xác định cấu hình thời gian hết hạn dựa trên loaiSuCoId (chính xác hơn)
+        let expireHours = 24;
+        // loaiSuCoId: 1 = Ùn tắc, 2 = Tai nạn -> 3 giờ
+        // loaiSuCoId: 3 = Ngập lụt, 4 = Công trình -> 24 giờ
+        if (item.loaiSuCoId === 1 || item.loaiSuCoId === 2) {
+          expireHours = 3;
+        }
+        const expireLimit = expireHours * 60 * 60 * 1000;
 
-      if ((item.trangThai === 'CHO_XAC_MINH' || item.trangThai === 'NGHI_VAN') && timeDiff > expireLimit) {
-        return 'QUA_HAN';
+        if ((item.trangThai === 'CHO_XAC_MINH' || item.trangThai === 'NGHI_VAN') && timeDiffMs > expireLimit) {
+          return 'QUA_HAN';
+        }
+      } catch (err) {
+        console.error('Lỗi khi tính thời gian hết hạn:', err, item);
       }
+      
       return item.trangThai;
     }, []);
 
