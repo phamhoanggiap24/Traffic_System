@@ -384,11 +384,15 @@ public class IncidentReportServiceImpl implements IncidentReportService {
 
         // 1. Nếu Admin chọn hẳn bộ lọc "QUA_HAN" (Bộ lọc ảo do Controller điều hướng sang hàm này)
         if ("QUA_HAN".equals(status)) {
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime timeLimit30 = now.minusMinutes(30);
+            LocalDateTime timeLimit60 = now.minusMinutes(60);
+
             return baoCaoSuCoRepository.findExpiredReports(
-                            incidentTypeId, username, start, end, currentNowVietnam, pageable)
+                            incidentTypeId, username, start, end, timeLimit30, timeLimit60, pageable)
                     .map(item -> {
                         ReportResponse dto = mapToDTO(item);
-                        // Trả về chữ "QUA_HAN" giả lập cho Frontend dễ hiển thị màu sắc/nhãn nhãn
+                        // Trả về chữ "NGHI_VAN" giả lập cho Frontend dễ hiển thị màu sắc/nhãn nhãn
                         dto.setTrangThai(ReportStatus.valueOf("NGHI_VAN"));
                         return dto;
                     });
@@ -444,12 +448,15 @@ public class IncidentReportServiceImpl implements IncidentReportService {
             }
         }
 
-        // ĐỒNG BỘ MÚI GIỜ: Sử dụng đồng nhất LocalDateTime.now() theo thời gian thực của máy chủ kết nối Database
+        // TÍNH TOÁN MỐC THỜI GIAN TRƯỚC KHI TRUYỀN VÀO REPOSITORY JPQL
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime timeLimit30 = now.minusMinutes(30);
+        LocalDateTime timeLimit60 = now.minusMinutes(60);
+
         Page<BaoCaoSuCo> expiredPage = baoCaoSuCoRepository.findExpiredReports(
-                loaiSuCoId, tenDangNhap, start, end, LocalDateTime.now(), pageable
+                loaiSuCoId, tenDangNhap, start, end, timeLimit30, timeLimit60, pageable
         );
 
-        // ĐÃ SỬA: Đổi từ convertToReportResponse (không tồn tại) sang hàm mapToDTO chuẩn của bạn
         return expiredPage.map(this::mapToDTO);
     }
 

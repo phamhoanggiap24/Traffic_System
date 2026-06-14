@@ -80,29 +80,29 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
     );
 
     // REFACTOR TO NATIVE: Khắc phục lỗi phân tích cú pháp cho tab QUÁ HẠN ảo
-    @Query(value = "SELECT b.* FROM bao_cao_su_co b WHERE " +
-            "(:loaiSuCoId IS NULL OR b.loai_su_co_id = :loaiSuCoId) AND " +
-            "(:tenDangNhap IS NULL OR :tenDangNhap = '' OR EXISTS (SELECT 1 FROM tai_khoan t WHERE t.tai_khoan_id = b.tai_khoan_id AND t.ten_dang_nhap LIKE CONCAT('%', :tenDangNhap, '%'))) AND " +
-            "(:start IS NULL OR b.thoi_gian_bao_cao BETWEEN :start AND :end) AND " +
-            "b.trang_thai = 'NGHI_VAN' AND (" +
-            "  (b.loai_su_co_id IN (1, 2) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) > 30) OR " +
-            "  (b.loai_su_co_id IN (3, 4) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) > 60)" +
+    @Query(value = "SELECT b FROM BaoCaoSuCo b WHERE " +
+            "(:loaiSuCoId IS NULL OR b.loaiSuCo.loaiSuCoId = :loaiSuCoId) AND " +
+            "(:tenDangNhap IS NULL OR :tenDangNhap = '' OR b.taiKhoan.tenDangNhap LIKE CONCAT('%', :tenDangNhap, '%')) AND " +
+            "(:start IS NULL OR b.thoiGianBaoCao BETWEEN :start AND :end) AND " +
+            "b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN AND (" +
+            "  (b.loaiSuCo.loaiSuCoId IN (1, 2) AND b.thoiGianBaoCao < :timeLimit30) OR " +
+            "  (b.loaiSuCo.loaiSuCoId IN (3, 4) AND b.thoiGianBaoCao < :timeLimit60)" +
             ")",
-            countQuery = "SELECT COUNT(*) FROM bao_cao_su_co b WHERE " +
-                    "(:loaiSuCoId IS NULL OR b.loai_su_co_id = :loaiSuCoId) AND " +
-                    "(:tenDangNhap IS NULL OR :tenDangNhap = '' OR EXISTS (SELECT 1 FROM tai_khoan t WHERE t.tai_khoan_id = b.tai_khoan_id AND t.ten_dang_nhap LIKE CONCAT('%', :tenDangNhap, '%'))) AND " +
-                    "(:start IS NULL OR b.thoi_gian_bao_cao BETWEEN :start AND :end) AND " +
-                    "b.trang_thai = 'NGHI_VAN' AND (" +
-                    "  (b.loai_su_co_id IN (1, 2) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) > 30) OR " +
-                    "  (b.loai_su_co_id IN (3, 4) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) > 60)" +
-                    ")",
-            nativeQuery = true)
+            countQuery = "SELECT COUNT(b) FROM BaoCaoSuCo b WHERE " +
+                    "(:loaiSuCoId IS NULL OR b.loaiSuCo.loaiSuCoId = :loaiSuCoId) AND " +
+                    "(:tenDangNhap IS NULL OR :tenDangNhap = '' OR b.taiKhoan.tenDangNhap LIKE CONCAT('%', :tenDangNhap, '%')) AND " +
+                    "(:start IS NULL OR b.thoiGianBaoCao BETWEEN :start AND :end) AND " +
+                    "b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN AND (" +
+                    "  (b.loaiSuCo.loaiSuCoId IN (1, 2) AND b.thoiGianBaoCao < :timeLimit30) OR " +
+                    "  (b.loaiSuCo.loaiSuCoId IN (3, 4) AND b.thoiGianBaoCao < :timeLimit60)" +
+                    ")")
     Page<BaoCaoSuCo> findExpiredReports(
             @Param("loaiSuCoId") Integer loaiSuCoId,
             @Param("tenDangNhap") String tenDangNhap,
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end,
-            @Param("now") LocalDateTime now,
+            @Param("timeLimit30") LocalDateTime timeLimit30,
+            @Param("timeLimit60") LocalDateTime timeLimit60,
             Pageable pageable
     );
 
