@@ -27,6 +27,43 @@
   gap: 25px;
 }
 
+.header-menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  margin-right: 10px;
+  color: #1e293b;
+}
+
+.header-menu-toggle:hover {
+  color: #2563eb;
+}
+
+/* RESPONSIVE MOBILE HEADER */
+@media (max-width: 768px) {
+  .header-container {
+    padding: 12px 15px;
+  }
+  
+  .header-title {
+    font-size: 16px;
+  }
+  
+  .header-menu-toggle {
+    display: block;
+  }
+  
+  .header-right-actions {
+    gap: 15px;
+  }
+  
+  .header-search {
+    display: none;
+  }
+}
+
 /* Profile và Dropdown */
 .profile-section {
   display: flex;

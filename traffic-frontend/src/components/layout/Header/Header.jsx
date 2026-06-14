@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, User, ChevronDown, LogOut, AlertCircle, Info, Check, Trash2 } from 'lucide-react';
+import { Bell, User, ChevronDown, LogOut, AlertCircle, Info, Check, Trash2, Menu, X } from 'lucide-react';
 import api from '../../../api/axiosConfig';
 import Profile from '../../profile/Profile';
 import './Header.css';
 
-const Header = ({ activeTab, user, onLogout, onUserUpdate }) => {
+const Header = ({ activeTab, user, onLogout, onUserUpdate, onMenuToggle, menuOpen }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotiDropdown, setShowNotiDropdown] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -147,10 +147,19 @@ const Header = ({ activeTab, user, onLogout, onUserUpdate }) => {
   return (
     <header className="header-container">
       <div className="header-top">
-        <h2 className="header-title"style={{
-            color: activeTab === 'map' ? '#2563eb' : 'inherit', fontWeight: '600'
-        }}>
-        {getHeaderTitle()}</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button 
+            className="header-menu-toggle" 
+            onClick={onMenuToggle}
+            title={menuOpen ? 'Đóng menu' : 'Mở menu'}
+          >
+            {menuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+          <h2 className="header-title"style={{
+              color: activeTab === 'map' ? '#2563eb' : 'inherit', fontWeight: '600'
+          }}>
+          {getHeaderTitle()}</h2>
+        </div>
 
         <div className="header-right-actions">
 

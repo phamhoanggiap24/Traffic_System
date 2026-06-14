@@ -48,6 +48,55 @@ body {
   overflow: auto !important;
 }
 
+/* RESPONSIVE MOBILE DESIGN */
+@media (max-width: 768px) {
+  .main-layout {
+    flex-direction: column;
+    height: 100vh;
+  }
+  
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 80vw;
+    max-width: 280px;
+    height: 100vh;
+    z-index: 999;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.3);
+  }
+  
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 998;
+  }
+  
+  .sidebar-overlay.hidden {
+    display: none;
+  }
+  
+  .content {
+    height: auto;
+    flex-direction: column;
+  }
+  
+  .view-container {
+    min-height: calc(100vh - 60px);
+  }
+}
+
 /* CÁC THÀNH PHẦN DÙNG CHUNG (REUSABLE COMPONENTS) */
 /* Thẻ Card bao quanh các form hoặc bảng */
 .form-card {

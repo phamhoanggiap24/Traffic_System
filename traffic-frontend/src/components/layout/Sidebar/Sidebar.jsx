@@ -3,7 +3,7 @@ import './Sidebar.css';
 import { Map, BarChart3, Users, ShieldAlert } from 'lucide-react';
 import api from '../../../api/axiosConfig';
 
-const Sidebar = ({ user, activeTab, setActiveTab }) => {
+const Sidebar = ({ user, activeTab, setActiveTab, onLogout, isOpen }) => {
   const isAdmin = user?.vaiTro?.includes('ROLE_ADMIN') ||
                   user?.vaiTro?.toString().includes('ADMIN') ||
                   localStorage.getItem('role') === 'ADMIN';
@@ -70,7 +70,7 @@ const Sidebar = ({ user, activeTab, setActiveTab }) => {
   }, [isAdmin, activeTab, setActiveTab]);
 
   return (
-    <aside className={`sidebar ${isAdmin ? 'admin-mode' : ''}`}>
+    <aside className={`sidebar ${isAdmin ? 'admin-mode' : ''} ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-logo">
         TRAFFIC MAP
       </div>

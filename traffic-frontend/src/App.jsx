@@ -15,9 +15,15 @@ function App() {
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')));
   const [authView, setAuthView] = useState('login');
   const [activeTab, setActiveTab] = useState(localStorage.getItem('currentTab') || 'map');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('currentTab', activeTab);
+  }, [activeTab]);
+
+  // Đóng sidebar khi chuyển tab
+  useEffect(() => {
+    setSidebarOpen(false);
   }, [activeTab]);
 
   const isAdmin = user?.vaiTro?.includes('ROLE_ADMIN') ||
@@ -38,10 +44,29 @@ function App() {
 
   return (
     <div className="main-layout">
-      <Sidebar user={user} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} />
+      {/* Overlay khi sidebar mở trên mobile */}
+      <div 
+        className={`sidebar-overlay ${!sidebarOpen ? 'hidden' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+      />
+      
+      <Sidebar 
+        user={user} 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        onLogout={handleLogout}
+        isOpen={sidebarOpen}
+      />
 
       <div className="content">
-        <Header activeTab={activeTab} user={user} onLogout={handleLogout} onUserUpdate={(u) => { setUser(u); localStorage.setItem('user', JSON.stringify(u)); }} />
+        <Header 
+          activeTab={activeTab} 
+          user={user} 
+          onLogout={handleLogout} 
+          onUserUpdate={(u) => { setUser(u); localStorage.setItem('user', JSON.stringify(u)); }}
+          onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
+          menuOpen={sidebarOpen}
+        />
 
         <main className="view-container">
           {activeTab === 'map' && <TrafficMap />}
