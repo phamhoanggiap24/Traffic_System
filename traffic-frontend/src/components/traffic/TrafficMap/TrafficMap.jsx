@@ -7,7 +7,6 @@ import ReactDOM from 'react-dom';
 import { Navigation, Search, CheckCircle, Trash2, AlertTriangle, XCircle, MapPin, EyeOff, Image } from 'lucide-react';
 import ReportForm from '../../user/ReportForm/ReportForm';
 import api from '../../../api/axiosConfig';
-import { getRelativeTime } from '../../../utils/timeFormatter';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -54,13 +53,6 @@ const IncidentPopupContent = ({ data, userRole, fetchAddress, handleAdminAction 
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const isAdmin = userRole === 'ADMIN';
 
-  const getStatusColor = (level) => {
-    if (level === 4) return "#dc3545"; // Đỏ
-    if (level === 3) return "#fd7e14"; // Cam
-    if (level === 2) return "#ffc107"; // Vàng
-    return "#28a745"; // Xanh
-  };
-
   useEffect(() => {
     let isMounted = true;
     const lat = data.viDo || data.lat;
@@ -81,7 +73,8 @@ const IncidentPopupContent = ({ data, userRole, fetchAddress, handleAdminAction 
   const isProcessed = data.trangThai === 'DA_XAC_MINH' || data.trangThai === 'SAI_SU_THAT';
   const isHiddenFromMap = data.trangThai === 'AN_HIEN_THI';
 
-  const imageUrl = data.hinhAnhUrl ? `http://localhost:8080${data.hinhAnhUrl}` : null;
+  // SỬA LỖI ẢNH: Lấy baseURL động của hệ thống thay vì gán chết localhost
+  const imageUrl = data.hinhAnhUrl ? `${api.defaults.baseURL || 'http://localhost:8080'}${data.hinhAnhUrl}` : null;
 
   return (
     <div className="map-popup-wrapper">
@@ -111,7 +104,9 @@ const IncidentPopupContent = ({ data, userRole, fetchAddress, handleAdminAction 
             )}
             <p><strong>Mô tả:</strong> {data.moTa || "Không có mô tả"}</p>
             <p><strong>Vị trí:</strong> {address}</p>
-            <p><strong>Thời gian:</strong> {data.thoiGianBaoCao ? getRelativeTime(data.thoiGianBaoCao) : "Vừa xong"}</p>
+
+            {/* SỬA LỖI THỜI GIAN: Gọi trực tiếp chuỗi thoiGianHienThi format từ Backend */}
+            <p><strong>Thời gian:</strong> {data.thoiGianHienThi ? data.thoiGianHienThi : "Vừa xong"}</p>
 
             {imageUrl && (
               <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -157,10 +152,14 @@ const IncidentPopupContent = ({ data, userRole, fetchAddress, handleAdminAction 
       )}
 
       {showPreviewModal && ReactDOM.createPortal(
-        <div className="image-modal-overlay" onClick={() => setShowPreviewModal(false)}>
+        <div className="image-modal-overlay" onClick={() => setShowPreviewModal(false)} style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex',
+          justifyContent: 'center', alignItems: 'center', zIndex: 9999
+        }}>
           <div className="image-modal-content" onClick={(e) => e.stopPropagation()}>
             <button className="close-modal" onClick={() => setShowPreviewModal(false)}>×</button>
-            <img src={imageUrl} alt="Sự cố giao thông thực tế" />
+            <img src={imageUrl} alt="Sự cố giao thông thực tế" style={{ maxWidth: '100%', maxHeight: '80vh' }} />
           </div>
         </div>,
         document.body
@@ -181,7 +180,6 @@ const TrafficMap = () => {
   const [suggestions, setSuggestions] = useState({ type: '', data: [] });
   const [routesData, setRoutesData] = useState([]);
   const [activeRouteIndex, setActiveRouteIndex] = useState(0);
-  // State để trigger re-render mỗi giây để cập nhật thời gian thực
   const [, setTimeUpdate] = useState(0);
 
   const [activeInput,setActiveInput] = useState('start');
@@ -314,6 +312,7 @@ const TrafficMap = () => {
 
         const currentBounds = mapRef.current?.getBounds();
 
+        // GIỮ NGUYÊN: Toàn bộ thuật toán sắp xếp gợi ý tìm kiếm của bạn
         const sortedData = (data || []).sort((a, b) => {
           const aIsRoad = a.class === 'highway' ? 1 : 0;
           const bIsRoad = b.class === 'highway' ? 1 : 0;
@@ -384,7 +383,6 @@ const TrafficMap = () => {
 
   useEffect(() => { fetchIncidents(); }, []);
 
-  // Update thời gian thực mỗi giây để hiển thị "5 phút trước", "10 phút trước" v.v.
   useEffect(() => {
     const interval = setInterval(() => {
       setTimeUpdate(prev => prev + 1);
@@ -517,6 +515,7 @@ const TrafficMap = () => {
               onChange={(e) => handleInputChange(e.target.value, 'start')}
               onKeyDown={(e) => e.key === 'Enter' && handleSearchLocation(startSearch, 'start')}
             />
+            {/* GIỮ NGUYÊN NÚT CLICK SEARCH CỦA BẠN */}
             <button onClick={() => handleSearchLocation(startSearch, 'start')} className="inner-search-btn">
               <Search size={16}/>
             </button>
@@ -541,6 +540,7 @@ const TrafficMap = () => {
               onChange={(e) => handleInputChange(e.target.value, 'end')}
               onKeyDown={(e) => e.key === 'Enter' && handleSearchLocation(endSearch, 'end')}
             />
+            {/* GIỮ NGUYÊN NÚT CLICK SEARCH CỦA BẠN */}
             <button onClick={() => handleSearchLocation(endSearch, 'end')} className="inner-search-btn">
               <Search size={16}/>
             </button>
@@ -563,6 +563,7 @@ const TrafficMap = () => {
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <MapEventsHandler />
 
+        {/* GIỮ NGUYÊN: Logic tính toán Đa tuyến (Polyline) và mở Popup chỉ đường */}
         {startPoint && endPoint &&
           [...routesData].map((route, originalIndex) => {
             const pathPoints = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
@@ -598,11 +599,7 @@ const TrafficMap = () => {
                   click: (e) => {
                     e.originalEvent.stopPropagation();
                     e.originalEvent.preventDefault();
-
-                    // Kích hoạt tuyến đường mới làm tuyến chính
                     setActiveRouteIndex(originalIndex);
-
-                    // Đưa trực tiếp đối tượng vừa click lên trên cùng
                     e.target.bringToFront();
                     e.target.openPopup(e.latlng);
                   }
@@ -620,7 +617,7 @@ const TrafficMap = () => {
                 <Popup autoClose={false} closeOnClick={false}>
                   <div style={{ fontSize: '13px', minWidth: '180px' }}>
                     <strong style={{ color: isActive ? '#2563eb' : '#4b5563' }}>
-                      {isActive ? "Tuyến đường gợi ý:" : "Tuyến đường gợi ý:"}
+                      Tuyến đường gợi ý:
                     </strong><br/>
                     Quãng đường dài khoảng: <b>{distanceKm} km</b><br/>
                     Thời gian ước tính khoảng: <b style={{ color: isActive ? '#dc3545' : '#2563eb' }}>{durationMinutes} phút</b>

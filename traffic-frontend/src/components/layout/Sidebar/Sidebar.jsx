@@ -3,7 +3,7 @@ import './Sidebar.css';
 import { Map, BarChart3, Users, ShieldAlert } from 'lucide-react';
 import api from '../../../api/axiosConfig';
 
-const Sidebar = ({ user, activeTab, setActiveTab, onLogout, isOpen }) => {
+const Sidebar = ({ user, activeTab, setActiveTab, onLogout, isOpen, pendingRefreshTrigger }) => {
   const isAdmin = user?.vaiTro?.includes('ROLE_ADMIN') ||
                   user?.vaiTro?.toString().includes('ADMIN') ||
                   localStorage.getItem('role') === 'ADMIN';
@@ -47,14 +47,14 @@ const Sidebar = ({ user, activeTab, setActiveTab, onLogout, isOpen }) => {
     }
   };
 
-  // Tự động tải lại dữ liệu sau mỗi 15 giây
+  // Tự động tải lại dữ liệu sau mỗi 15 giây HOẶC tải lại ngay khi nhận tín hiệu từ App.js
   useEffect(() => {
     if (isAdmin) {
       fetchPendingCount();
       const interval = setInterval(fetchPendingCount, 15000);
       return () => clearInterval(interval);
     }
-  }, [user, isAdmin]);
+  }, [user, isAdmin, pendingRefreshTrigger]); // Bổ sung theo dõi thay đổi dữ liệu báo cáo
 
   // Theo dõi ReportList truyền sang để cập nhật số Badge
   useEffect(() => {

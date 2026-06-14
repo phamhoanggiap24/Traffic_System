@@ -17,6 +17,9 @@ function App() {
   const [activeTab, setActiveTab] = useState(localStorage.getItem('currentTab') || 'map');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // State dùng để kích hoạt Sidebar làm mới số đếm ngay khi duyệt hoặc xóa
+  const [pendingRefreshTrigger, setPendingRefreshTrigger] = useState(0);
+
   useEffect(() => {
     localStorage.setItem('currentTab', activeTab);
   }, [activeTab]);
@@ -25,6 +28,18 @@ function App() {
   useEffect(() => {
     setSidebarOpen(false);
   }, [activeTab]);
+
+  // Theo dõi sự kiện thay đổi báo cáo từ ReportList để cập nhật trigger
+  useEffect(() => {
+    const handleIncidentUpdate = () => {
+      setPendingRefreshTrigger(prev => prev + 1);
+    };
+
+    window.addEventListener('incident-verified', handleIncidentUpdate);
+    return () => {
+      window.removeEventListener('incident-verified', handleIncidentUpdate);
+    };
+  }, []);
 
   const isAdmin = user?.vaiTro?.includes('ROLE_ADMIN') ||
                   user?.vaiTro?.toString().includes('ADMIN') ||
@@ -45,17 +60,18 @@ function App() {
   return (
     <div className="main-layout">
       {/* Overlay khi sidebar mở trên mobile */}
-      <div 
+      <div
         className={`sidebar-overlay ${!sidebarOpen ? 'hidden' : ''}`}
         onClick={() => setSidebarOpen(false)}
       />
-      
-      <Sidebar 
-        user={user} 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
+
+      <Sidebar
+        user={user}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
         onLogout={handleLogout}
         isOpen={sidebarOpen}
+        pendingRefreshTrigger={pendingRefreshTrigger} // Truyền trigger xuống cho Sidebar nhận diện
       />
 
       <div className="content">

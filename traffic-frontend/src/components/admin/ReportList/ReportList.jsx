@@ -11,7 +11,7 @@ const ReportList = ({ setActiveTab }) => {
 
   // State để lưu ảnh khi được click phóng to
   const [modalImage, setModalImage] = useState(null);
-  
+
   // State để trigger re-render mỗi giây để cập nhật thời gian thực
   const [, setTimeUpdate] = useState(0);
 
@@ -69,14 +69,14 @@ const ReportList = ({ setActiveTab }) => {
         const currentTime = new Date();
         const timeDiffMs = currentTime.getTime() - reportTime.getTime();
 
-        // Xác định cấu hình thời gian hết hạn dựa trên loaiSuCoId (chính xác hơn)
-        let expireHours = 24;
-        // loaiSuCoId: 1 = Ùn tắc, 2 = Tai nạn -> 3 giờ
-        // loaiSuCoId: 3 = Ngập lụt, 4 = Công trình -> 24 giờ
+        // ĐỒNG BỘ VỚI LOGIC TỰ ĐỘNG CỦA BACKEND:
+        // loaiSuCoId: 1 = Ùn tắc, 2 = Tai nạn -> 30 phút
+        // loaiSuCoId: 3 = Ngập lụt, 4 = Công trình -> 60 phút
+        let expireMinutes = 60;
         if (item.loaiSuCoId === 1 || item.loaiSuCoId === 2) {
-          expireHours = 3;
+          expireMinutes = 30;
         }
-        const expireLimit = expireHours * 60 * 60 * 1000;
+        const expireLimit = expireMinutes * 60 * 1000;
 
         if ((item.trangThai === 'CHO_XAC_MINH' || item.trangThai === 'NGHI_VAN') && timeDiffMs > expireLimit) {
           return 'QUA_HAN';
@@ -84,7 +84,7 @@ const ReportList = ({ setActiveTab }) => {
       } catch (err) {
         console.error('Lỗi khi tính thời gian hết hạn:', err, item);
       }
-      
+
       return item.trangThai;
     }, []);
 
@@ -349,7 +349,6 @@ const ReportList = ({ setActiveTab }) => {
                           {effectiveStatus === 'AN_HIEN_THI' && <EyeOff size={12} />}
                           {effectiveStatus === 'DA_XOA' && <Trash2 size={12} />}
 
-                          {/* Thêm điều kiện render text cho nhãn DA_XOA */}
                           {effectiveStatus === 'SAI_SU_THAT' ? 'Tin giả' :
                             effectiveStatus === 'DA_XAC_MINH' ? 'Xác nhận' :
                             effectiveStatus === 'QUA_HAN' ? 'Quá hạn' :
