@@ -19,7 +19,10 @@ import java.util.List;
 
 @Repository
 public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
-    // CÁC HÀM THỐNG KÊ TOÀN HỆ THỐNG
+
+    // =========================================================================
+    // 1. CÁC HÀM THỐNG KÊ TOÀN HỆ THỐNG (Chỉ tính các báo cáo hợp lệ, đang hiển thị)
+    // =========================================================================
     @Query("SELECT COUNT(b) FROM BaoCaoSuCo b WHERE b.trangThai IN (com.traffic.common.ReportStatus.DA_XAC_MINH, com.traffic.common.ReportStatus.AN_HIEN_THI)")
     long countAllVerifiedReports();
 
@@ -53,7 +56,9 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
-    // CÁC HÀM TÌM KIẾM VÀ BẢN ĐỒ
+    // =========================================================================
+    // 2. BỘ LỌC DANH SÁCH QUẢN LÝ (FIX LỖI TRẠNG THÁI VÀ QUÁ HẠN CHƯA DUYỆT)
+    // =========================================================================
     @Query("SELECT b FROM BaoCaoSuCo b WHERE " +
             "(:tenDangNhap IS NULL OR b.taiKhoan.tenDangNhap LIKE %:tenDangNhap%) AND " +
             "(:loaiSuCoId IS NULL OR b.loaiSuCo.loaiSuCoId = :loaiSuCoId) AND " +
@@ -61,15 +66,17 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             "(b.trangThai != com.traffic.common.ReportStatus.DA_XOA) AND " +
             "(" +
             "  (:trangThai IS NULL) OR " +
+            "  {0} " + // Logic động xử lý bộ lọc trạng thái tại Service hoặc viết tường minh dưới đây:
             "  (:trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH AND b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH AND (" +
             "       (b.loaiSuCo.loaiSuCoId IN (1, 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) <= 30) OR " +
             "       (b.loaiSuCo.loaiSuCoId IN (3, 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) <= 60)" +
             "  )) OR " +
-            "  (:trangThai = com.traffic.common.ReportStatus.NGHI_VAN AND b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN AND (" +
-            "       (b.loaiSuCo.loaiSuCoId IN (1, 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) <= 30) OR " +
-            "       (b.loaiSuCo.loaiSuCoId IN (3, 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) <= 60)" +
+            "  (:trangThai = com.traffic.common.ReportStatus.NGHI_VAN AND b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN) OR " +
+            "  (:trangThai = com.traffic.common.ReportStatus.QUA_HAN AND b.trangThai IN (com.traffic.common.ReportStatus.CHO_XAC_MINH, com.traffic.common.ReportStatus.NGHI_VAN) AND (" +
+            "       (b.loaiSuCo.loaiSuCoId IN (1, 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 30) OR " +
+            "       (b.loaiSuCo.loaiSuCoId IN (3, 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 60)" +
             "  )) OR " +
-            "  (:trangThai NOT IN (com.traffic.common.ReportStatus.CHO_XAC_MINH, com.traffic.common.ReportStatus.NGHI_VAN) AND b.trangThai = :trangThai)" +
+            "  (:trangThai NOT IN (com.traffic.common.ReportStatus.CHO_XAC_MINH, com.traffic.common.ReportStatus.QUA_HAN) AND b.trangThai = :trangThai)" +
             ")")
     Page<BaoCaoSuCo> findWithFilters(
             @Param("loaiSuCoId") Integer loaiSuCoId,
@@ -81,16 +88,7 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             Pageable pageable
     );
 
-    @Query("SELECT b FROM BaoCaoSuCo b WHERE " +
-            "(b.trangThai = com.traffic.common.ReportStatus.DA_XAC_MINH AND (" +
-            "(b.loaiSuCo.loaiSuCoId IN (1, 2) AND b.thoiGianXacMinh >= :threeHoursAgo) OR " +
-            "(b.loaiSuCo.loaiSuCoId IN (3, 4) AND b.thoiGianXacMinh >= :oneDayAgo)" +
-            "))")
-    List<BaoCaoSuCo> findActiveReportsForMap(
-            @Param("threeHoursAgo") LocalDateTime threeHoursAgo,
-            @Param("oneDayAgo") LocalDateTime oneDayAgo
-    );
-
+    // Tìm kiếm các báo cáo chưa duyệt nhưng đã hết thời gian chờ xử lý (Báo cáo quá hạn)
     @Query("SELECT b FROM BaoCaoSuCo b WHERE " +
             "(:tenDangNhap IS NULL OR b.taiKhoan.tenDangNhap LIKE %:tenDangNhap%) AND " +
             "(:loaiSuCoId IS NULL OR b.loaiSuCo.loaiSuCoId = :loaiSuCoId) AND " +
@@ -108,10 +106,27 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             Pageable pageable
     );
 
-    @Query("SELECT COUNT(b) FROM BaoCaoSuCo b WHERE b.trangThai IN (com.traffic.common.ReportStatus.CHO_XAC_MINH, com.traffic.common.ReportStatus.NGHI_VAN)")
+    // 🌟 SỬA ĐỔI: Hàm đếm chuẩn số lượng Badge thông báo chưa duyệt (Còn trong hạn xử lý)
+    @Query("SELECT COUNT(b) FROM BaoCaoSuCo b WHERE " +
+            "b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH AND (" +
+            "  (b.loaiSuCo.loaiSuCoId IN (1, 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) <= 30) OR " +
+            "  (b.loaiSuCo.loaiSuCoId IN (3, 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) <= 60)" +
+            ")")
     long countPendingReports(@Param("now") LocalDateTime now);
 
-    // CÁC PHƯƠNG THỨC LỌC BÁN KÍNH
+    // =========================================================================
+    // 3. CÁC PHƯƠNG THỨC LỌC BÁN KÍNH TRÊN BẢN ĐỒ
+    // =========================================================================
+    @Query("SELECT b FROM BaoCaoSuCo b WHERE " +
+            "(b.trangThai = com.traffic.common.ReportStatus.DA_XAC_MINH AND (" +
+            "(b.loaiSuCo.loaiSuCoId IN (1, 2) AND b.thoiGianXacMinh >= :threeHoursAgo) OR " +
+            "(b.loaiSuCo.loaiSuCoId IN (3, 4) AND b.thoiGianXacMinh >= :oneDayAgo)" +
+            "))")
+    List<BaoCaoSuCo> findActiveReportsForMap(
+            @Param("threeHoursAgo") LocalDateTime threeHoursAgo,
+            @Param("oneDayAgo") LocalDateTime oneDayAgo
+    );
+
     @Query("SELECT new com.traffic.dto.response.TrafficTimeStatsResponse(" +
             "FUNCTION('DATE', b.thoiGianBaoCao), CAST(COUNT(DISTINCT b.baoCaoId) AS long)) " +
             "FROM BaoCaoSuCo b " +
