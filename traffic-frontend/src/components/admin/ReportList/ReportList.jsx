@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../../../api/axiosConfig';
 import './ReportList.css';
 import { MapPin, Search, Trash2, AlertTriangle, CheckCircle, RefreshCw, Clock, ChevronDown, Calendar, EyeOff, Image as ImageIcon, X } from 'lucide-react';
+import { formatTimeWithTimezone } from '../../../utils/timeFormatter';
 
 const ReportList = ({ setActiveTab }) => {
   const [reports, setReports] = useState([]);
