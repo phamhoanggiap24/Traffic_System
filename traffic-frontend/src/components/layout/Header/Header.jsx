@@ -220,6 +220,14 @@ const Header = ({ activeTab, user, onLogout, onUserUpdate, onMenuToggle, menuOpe
                             </div>
                             <div className="noti-content-box" style={{ marginRight: '40px' }}>
                               <p className="noti-text">{noti.noiDung}</p>
+                              {noti.hinhAnh && (
+                                <img 
+                                  src={noti.hinhAnh} 
+                                  alt="notification" 
+                                  className="noti-image"
+                                  onError={(e) => { e.target.style.display = 'none'; }}
+                                />
+                              )}
                               <span className="noti-time">{formatTime(noti.thoiGianGui)}</span>
                             </div>
                           </div>

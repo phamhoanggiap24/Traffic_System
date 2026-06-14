@@ -62,6 +62,32 @@
   .header-search {
     display: none;
   }
+  
+  /* Notification dropdown responsive */
+  .noti-dropdown {
+    position: fixed;
+    top: auto;
+    right: 10px;
+    left: 10px;
+    width: calc(100vw - 20px);
+    max-width: 320px;
+    max-height: 60vh;
+    bottom: auto;
+  }
+  
+  .noti-dropdown-body {
+    max-height: calc(60vh - 80px);
+  }
+  
+  /* Profile dropdown responsive */
+  .profile-dropdown {
+    position: fixed;
+    right: 10px;
+    left: auto;
+    width: calc(100vw - 20px);
+    max-width: 190px;
+    top: auto;
+  }
 }
 
 /* Profile và Dropdown */
@@ -281,6 +307,22 @@
 .noti-time {
   font-size: 11px;
   color: #94a3b8;
+}
+
+/* Hình ảnh trong notification */
+.noti-image {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 6px;
+  margin-top: 8px;
+}
+
+@media (max-width: 768px) {
+  .noti-image {
+    width: 50px;
+    height: 50px;
+  }
 }
 
 /* Chấm tròn xanh thông báo chưa đọc */
