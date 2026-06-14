@@ -10,9 +10,9 @@
 export const formatTimeWithTimezone = (dateString) => {
   try {
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) {
-      return dateString;
-    }
+
+    const vnDate = new Date(date.getTime() + (7 * 60 * 60 * 1000));
+
     const formatter = new Intl.DateTimeFormat('vi-VN', {
       year: 'numeric',
       month: '2-digit',
@@ -22,7 +22,8 @@ export const formatTimeWithTimezone = (dateString) => {
       second: '2-digit',
       timeZone: 'Asia/Ho_Chi_Minh'
     });
-    return formatter.format(date);
+
+    return formatter.format(vnDate);
   } catch (err) {
     console.error('Lỗi format time:', err);
     return dateString;
