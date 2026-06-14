@@ -57,7 +57,7 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             @Param("endDate") LocalDateTime endDate);
 
     // =========================================================================
-    // 2. BỘ LỌC DANH SÁCH QUẢN LÝ (SỬA LỖI TOÁN TỬ VÀ THÊM COUNT QUERY)
+    // 2. BỘ LỌC DANH SÁCH QUẢN LÝ (ĐỒNG BỘ KIỂU INTEGER THEO IMPL)
     // =========================================================================
     @Query(value = "SELECT b FROM BaoCaoSuCo b WHERE " +
             "(:loaiSuCoId IS NULL OR b.loaiSuCo.loaiSuCoId = :loaiSuCoId) AND " +
@@ -96,7 +96,7 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
                     "  (:trangThai != com.traffic.common.ReportStatus.CHO_XAC_MINH AND :trangThai != com.traffic.common.ReportStatus.QUA_HAN AND b.trangThai = :trangThai)" +
                     ")")
     Page<BaoCaoSuCo> findWithFilters(
-            @Param("loaiSuCoId") Integer loaiSuCoId,
+            @Param("loaiSuCoId") Integer loaiSuCoId, // Đã giữ nguyên Integer khớp Impl
             @Param("tenDangNhap") String tenDangNhap,
             @Param("trangThai") ReportStatus trangThai,
             @Param("start") LocalDateTime start,
@@ -122,7 +122,7 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
                     "  ((b.loaiSuCo.loaiSuCoId = 3 OR b.loaiSuCo.loaiSuCoId = 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 60)" +
                     ")")
     Page<BaoCaoSuCo> findExpiredReports(
-            @Param("loaiSuCoId") Integer loaiSuCoId,
+            @Param("loaiSuCoId") Integer loaiSuCoId, // Đã giữ nguyên Integer khớp Impl
             @Param("tenDangNhap") String tenDangNhap,
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end,
@@ -208,7 +208,7 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             ")")
     List<BaoCaoSuCo> findPendingReportsOverdue(@Param("now") LocalDateTime now);
 
-    // THAY ĐỔI: Chuyển tham số loaiId từ Integer thành Object để tương thích với cấu trúc của file Impl cũ khi truyền dữ liệu tự động.
+    // ĐÃ FIX lỗi gạch đỏ (;) và chuyển kiểu dữ liệu tham số để nhận giá trị unboxing tự động từ file Impl của bạn
     @Query("SELECT b FROM BaoCaoSuCo b WHERE " +
             "b.loaiSuCo.loaiSuCoId = :loaiId AND " +
             "b.trangThai = com.traffic.common.ReportStatus.DA_XAC_MINH AND " +
