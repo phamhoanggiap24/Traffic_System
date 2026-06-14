@@ -68,12 +68,17 @@ const IncidentPopupContent = ({ data, userRole, fetchAddress, handleAdminAction 
 
   const reportTime = data.thoiGianBaoCao ? new Date(data.thoiGianBaoCao).getTime() : new Date().getTime();
   const currentTime = new Date().getTime();
-  const isTimeOut = (currentTime - reportTime) > (24 * 60 * 60 * 1000);
+
+  // ĐỒNG BỘ LOGIC THỜI GIAN HẾT HẠN TRÊN POPUP VỚI BACKEND
+  let expireMinutes = 60;
+  if (data.loaiSuCoId === 1 || data.loaiSuCoId === 2) {
+    expireMinutes = 30;
+  }
+  const isTimeOut = (currentTime - reportTime) > (expireMinutes * 60 * 1000);
   const isExpired = (isTimeOut && (data.trangThai === 'CHO_XAC_MINH' || data.trangThai === 'NGHI_VAN')) || data.trangThai === 'QUA_HAN';
   const isProcessed = data.trangThai === 'DA_XAC_MINH' || data.trangThai === 'SAI_SU_THAT';
   const isHiddenFromMap = data.trangThai === 'AN_HIEN_THI';
 
-  // SỬA LỖI ẢNH: Lấy baseURL động của hệ thống thay vì gán chết localhost
   const imageUrl = data.hinhAnhUrl ? `${api.defaults.baseURL || 'http://localhost:8080'}${data.hinhAnhUrl}` : null;
 
   return (
@@ -88,7 +93,7 @@ const IncidentPopupContent = ({ data, userRole, fetchAddress, handleAdminAction 
             <p><strong>Vị trí đã chọn</strong></p>
             <p>{address}</p>
             <div className="admin-expired-notice" style={{ color: '#dc3545', fontSize: '11px', fontStyle: 'italic', marginTop: '5px' }}>
-              Báo cáo đã quá thời hạn
+              Báo cáo đã quá thời hạn hiển thị thực tế
             </div>
           </div>
         ) : (
@@ -104,8 +109,6 @@ const IncidentPopupContent = ({ data, userRole, fetchAddress, handleAdminAction 
             )}
             <p><strong>Mô tả:</strong> {data.moTa || "Không có mô tả"}</p>
             <p><strong>Vị trí:</strong> {address}</p>
-
-            {/* SỬA LỖI THỜI GIAN: Gọi trực tiếp chuỗi thoiGianHienThi format từ Backend */}
             <p><strong>Thời gian:</strong> {data.thoiGianHienThi ? data.thoiGianHienThi : "Vừa xong"}</p>
 
             {imageUrl && (
@@ -191,6 +194,7 @@ const TrafficMap = () => {
   };
 
   const debounceTimer = useRef(null);
+  const polylineRefs = useRef({});
 
   const userRole = useMemo(() => {
     try {
@@ -312,7 +316,6 @@ const TrafficMap = () => {
 
         const currentBounds = mapRef.current?.getBounds();
 
-        // GIỮ NGUYÊN: Toàn bộ thuật toán sắp xếp gợi ý tìm kiếm của bạn
         const sortedData = (data || []).sort((a, b) => {
           const aIsRoad = a.class === 'highway' ? 1 : 0;
           const bIsRoad = b.class === 'highway' ? 1 : 0;
@@ -393,6 +396,24 @@ const TrafficMap = () => {
   useEffect(() => {
     if (selectedPoint && markerRef.current) { markerRef.current.openPopup(); }
   }, [selectedPoint]);
+
+  // SỬA LỖI POPUP CHỒNG CHÉO: Điều khiển chỉ mở 1 popup của tuyến đường đang active
+  useEffect(() => {
+    if (routesData.length > 0 && polylineRefs.current[activeRouteIndex]) {
+      const activePolyline = polylineRefs.current[activeRouteIndex];
+      const routeGeom = routesData[activeRouteIndex]?.geometry?.coordinates;
+      if (routeGeom && routeGeom.length > 0) {
+        const middleIndex = Math.floor(routeGeom.length / 2);
+        const midCoord = routeGeom[middleIndex];
+        if (midCoord) {
+          activePolyline.bringToFront();
+          setTimeout(() => {
+            activePolyline.openPopup([midCoord[1], midCoord[0]]);
+          }, 150);
+        }
+      }
+    }
+  }, [activeRouteIndex, routesData]);
 
   useEffect(() => {
     const handleTriggerFly = () => {
@@ -515,7 +536,6 @@ const TrafficMap = () => {
               onChange={(e) => handleInputChange(e.target.value, 'start')}
               onKeyDown={(e) => e.key === 'Enter' && handleSearchLocation(startSearch, 'start')}
             />
-            {/* GIỮ NGUYÊN NÚT CLICK SEARCH CỦA BẠN */}
             <button onClick={() => handleSearchLocation(startSearch, 'start')} className="inner-search-btn">
               <Search size={16}/>
             </button>
@@ -540,7 +560,6 @@ const TrafficMap = () => {
               onChange={(e) => handleInputChange(e.target.value, 'end')}
               onKeyDown={(e) => e.key === 'Enter' && handleSearchLocation(endSearch, 'end')}
             />
-            {/* GIỮ NGUYÊN NÚT CLICK SEARCH CỦA BẠN */}
             <button onClick={() => handleSearchLocation(endSearch, 'end')} className="inner-search-btn">
               <Search size={16}/>
             </button>
@@ -563,12 +582,10 @@ const TrafficMap = () => {
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <MapEventsHandler />
 
-        {/* GIỮ NGUYÊN: Logic tính toán Đa tuyến (Polyline) và mở Popup chỉ đường */}
         {startPoint && endPoint &&
           [...routesData].map((route, originalIndex) => {
             const pathPoints = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
             const isActive = originalIndex === activeRouteIndex;
-
             const durationMinutes = route.thoiGianUocTinhPhut;
             const distanceKm = (route.distanceMeters / 1000).toFixed(1);
 
@@ -576,48 +593,26 @@ const TrafficMap = () => {
               <Polyline
                 key={`polyline-route-${originalIndex}`}
                 positions={pathPoints}
-
-                ref={(ref) => {
-                  if (ref) {
-                    if (isActive) {
-                      ref.bringToFront();
-
-                      if (!ref.isPopupOpen()) {
-                        const middleIndex = Math.floor(pathPoints.length / 2);
-                        const defaultLatLng = pathPoints[middleIndex];
-                        if (defaultLatLng) {
-                          setTimeout(() => {
-                            if (ref && !ref.isPopupOpen()) ref.openPopup(defaultLatLng);
-                          }, 100);
-                        }
-                      }
-                    }
-                  }
-                }}
-
+                ref={(ref) => { if (ref) polylineRefs.current[originalIndex] = ref; }}
                 eventHandlers={{
                   click: (e) => {
                     e.originalEvent.stopPropagation();
                     e.originalEvent.preventDefault();
                     setActiveRouteIndex(originalIndex);
-                    e.target.bringToFront();
-                    e.target.openPopup(e.latlng);
                   }
                 }}
-
                 pathOptions={{
                   color: isActive ? '#2563eb' : '#93c5fd',
                   weight: isActive ? 9 : 5,
-                  opacity: isActive ? 3 : 0.7,
+                  opacity: isActive ? 1.0 : 0.6,
                   lineJoin: 'round',
-                  lineCap: 'round',
-                  dashArray: null
+                  lineCap: 'round'
                 }}
               >
                 <Popup autoClose={false} closeOnClick={false}>
                   <div style={{ fontSize: '13px', minWidth: '180px' }}>
                     <strong style={{ color: isActive ? '#2563eb' : '#4b5563' }}>
-                      Tuyến đường gợi ý:
+                      Tuyến đường gợi ý {originalIndex + 1}:
                     </strong><br/>
                     Quãng đường dài khoảng: <b>{distanceKm} km</b><br/>
                     Thời gian ước tính khoảng: <b style={{ color: isActive ? '#dc3545' : '#2563eb' }}>{durationMinutes} phút</b>
@@ -639,8 +634,32 @@ const TrafficMap = () => {
           </Marker>
         )}
 
+        {/* SỬA LỖI DÀY ĐẶC MARKER: Thêm filter tính thời gian hết hạn ngầm để ẩn sự cố cũ */}
         {incidents
-          .filter(i => i.trangThai === 'DA_XAC_MINH' && (!focusIncident || i.baoCaoId !== focusIncident.baoCaoId))
+          .filter(i => {
+            // Loại bỏ các sự cố bị tác động trực tiếp
+            if (['SAI_SU_THAT', 'AN_HIEN_THI', 'DA_XOA', 'QUA_HAN'].includes(i.trangThai)) return false;
+
+            // Tính toán thời gian hết hạn tự động cho các sự cố còn lại
+            try {
+              const rTime = new Date(i.thoiGianBaoCao).getTime();
+              const cTime = new Date().getTime();
+
+              // 30 phút cho loại 1, 2 và 60 phút cho loại 3, 4
+              let limitMinutes = 60;
+              if (i.loaiSuCoId === 1 || i.loaiSuCoId === 2) {
+                limitMinutes = 30;
+              }
+              if ((cTime - rTime) > (limitMinutes * 60 * 1000)) {
+                return false; // Quá hạn tự động -> Loại bỏ khỏi Map
+              }
+            } catch (err) { return false; }
+
+            // Loại bỏ marker trùng với marker đang được focus xem riêng biệt bằng Admin
+            if (focusIncident && i.baoCaoId === focusIncident.baoCaoId) return false;
+
+            return true;
+          })
           .map((incident) => {
             const level = Number(incident.mucDoUnTac || incident.mucDo || 4);
             const iconToRender = incidentIcons[level] || incidentIcons[4];
