@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../../../api/axiosConfig';
 import './ReportList.css';
 import { MapPin, Search, Trash2, AlertTriangle, CheckCircle, RefreshCw, Clock, ChevronDown, Calendar, EyeOff, Image as ImageIcon, X } from 'lucide-react';
-import { getRelativeTime } from '../../../utils/timeFormatter';
 
 const ReportList = ({ setActiveTab }) => {
   const [reports, setReports] = useState([]);
@@ -323,7 +322,7 @@ const ReportList = ({ setActiveTab }) => {
                   const effectiveStatus = getEffectiveStatus(item);
                   return (
                     <tr key={item.baoCaoId || item.id}>
-                      <td>{getRelativeTime(item.thoiGianBaoCao)}</td>
+                      <td>{formatTimeWithTimezone(item.thoiGianBaoCao)}</td>
                       <td style={{ fontWeight: '600', color: '#1e293b' }}>{item.tenDangNhap}</td>
                       <td style={{ textAlign: 'center' }}>
                         <span className="incident-type">{item.tenLoaiSuCo}</span>
