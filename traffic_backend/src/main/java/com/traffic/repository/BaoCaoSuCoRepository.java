@@ -79,25 +79,24 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             Pageable pageable
     );
 
-    // Lọc danh sách NGHI VẤN đã hết thời gian (để hiển thị tại tab QUÁ HẠN ảo trên UI)
-    @Query(value = "SELECT b FROM BaoCaoSuCo b WHERE " +
-            "(:loaiSuCoId IS NULL OR b.loaiSuCo.loaiSuCoId = :loaiSuCoId) AND " +
-            "(:tenDangNhap IS NULL OR :tenDangNhap = '' OR b.taiKhoan.tenDangNhap LIKE CONCAT('%', :tenDangNhap, '%')) AND " +
-            "(:start IS NULL OR b.thoiGianBaoCao BETWEEN :start AND :end) AND " +
-            "b.trangThai != com.traffic.common.ReportStatus.DA_XOA AND " +
-            "b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN AND (" +
-            "  ((b.loaiSuCo.loaiSuCoId = 1 OR b.loaiSuCo.loaiSuCoId = 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 30) OR " +
-            "  ((b.loaiSuCo.loaiSuCoId = 3 OR b.loaiSuCo.loaiSuCoId = 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 60)" +
+    // REFACTOR TO NATIVE: Khắc phục lỗi phân tích cú pháp cho tab QUÁ HẠN ảo
+    @Query(value = "SELECT b.* FROM bao_cao_su_co b WHERE " +
+            "(:loaiSuCoId IS NULL OR b.loai_su_co_id = :loaiSuCoId) AND " +
+            "(:tenDangNhap IS NULL OR :tenDangNhap = '' OR EXISTS (SELECT 1 FROM tai_khoan t WHERE t.tai_khoan_id = b.tai_khoan_id AND t.ten_dang_nhap LIKE CONCAT('%', :tenDangNhap, '%'))) AND " +
+            "(:start IS NULL OR b.thoi_gian_bao_cao BETWEEN :start AND :end) AND " +
+            "b.trang_thai = 'NGHI_VAN' AND (" +
+            "  (b.loai_su_co_id IN (1, 2) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) > 30) OR " +
+            "  (b.loai_su_co_id IN (3, 4) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) > 60)" +
             ")",
-            countQuery = "SELECT COUNT(b) FROM BaoCaoSuCo b WHERE " +
-                    "(:loaiSuCoId IS NULL OR b.loaiSuCo.loaiSuCoId = :loaiSuCoId) AND " +
-                    "(:tenDangNhap IS NULL OR :tenDangNhap = '' OR b.taiKhoan.tenDangNhap LIKE CONCAT('%', :tenDangNhap, '%')) AND " +
-                    "(:start IS NULL OR b.thoiGianBaoCao BETWEEN :start AND :end) AND " +
-                    "b.trangThai != com.traffic.common.ReportStatus.DA_XOA AND " +
-                    "b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN AND (" +
-                    "  ((b.loaiSuCo.loaiSuCoId = 1 OR b.loaiSuCo.loaiSuCoId = 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 30) OR " +
-                    "  ((b.loaiSuCo.loaiSuCoId = 3 OR b.loaiSuCo.loaiSuCoId = 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 60)" +
-                    ")")
+            countQuery = "SELECT COUNT(*) FROM bao_cao_su_co b WHERE " +
+                    "(:loaiSuCoId IS NULL OR b.loai_su_co_id = :loaiSuCoId) AND " +
+                    "(:tenDangNhap IS NULL OR :tenDangNhap = '' OR EXISTS (SELECT 1 FROM tai_khoan t WHERE t.tai_khoan_id = b.tai_khoan_id AND t.ten_dang_nhap LIKE CONCAT('%', :tenDangNhap, '%'))) AND " +
+                    "(:start IS NULL OR b.thoi_gian_bao_cao BETWEEN :start AND :end) AND " +
+                    "b.trang_thai = 'NGHI_VAN' AND (" +
+                    "  (b.loai_su_co_id IN (1, 2) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) > 30) OR " +
+                    "  (b.loai_su_co_id IN (3, 4) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) > 60)" +
+                    ")",
+            nativeQuery = true)
     Page<BaoCaoSuCo> findExpiredReports(
             @Param("loaiSuCoId") Integer loaiSuCoId,
             @Param("tenDangNhap") String tenDangNhap,
@@ -107,22 +106,21 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             Pageable pageable
     );
 
-    // Đếm tổng số lượng thông báo đang hoạt động (Chờ duyệt và Nghi vấn chưa hết hạn)
-    @Query("SELECT COUNT(b) FROM BaoCaoSuCo b WHERE " +
-            "b.trangThai != com.traffic.common.ReportStatus.DA_XOA AND " +
-            "((b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH AND NOT (" +
-            "  ((b.loaiSuCo.loaiSuCoId = 1 OR b.loaiSuCo.loaiSuCoId = 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 30) OR " +
-            "  ((b.loaiSuCo.loaiSuCoId = 3 OR b.loaiSuCo.loaiSuCoId = 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 60)" +
-            ")) OR " +
-            "(b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN AND NOT (" +
-            "  ((b.loaiSuCo.loaiSuCoId = 1 OR b.loaiSuCo.loaiSuCoId = 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 30) OR " +
-            "  ((b.loaiSuCo.loaiSuCoId = 3 OR b.loaiSuCo.loaiSuCoId = 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 60)" +
-            "))" +
-            ")")
+    // REFACTOR TO NATIVE: Giải phóng bộ nhớ cho hàm đếm thông báo đang hoạt động
+    @Query(value = "SELECT COUNT(*) FROM bao_cao_su_co b WHERE b.trang_thai != 'DA_XOA' AND (" +
+            "  (b.trang_thai = 'CHO_XAC_MINH' AND NOT (" +
+            "    (b.loai_su_co_id IN (1, 2) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) > 30) OR " +
+            "    (b.loai_su_co_id IN (3, 4) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) > 60)" +
+            "  )) OR " +
+            "  (b.trang_thai = 'NGHI_VAN' AND NOT (" +
+            "    (b.loai_su_co_id IN (1, 2) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) > 30) OR " +
+            "    (b.loai_su_co_id IN (3, 4) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) > 60)" +
+            "  ))" +
+            ")", nativeQuery = true)
     long countPendingReports(@Param("now") LocalDateTime now);
 
     // =========================================================================
-    // 3. CÁC PHƯƠNG THỨC LỌC BÁN KÍNH TRÊN BẢN ĐỒ (CHUYỂN NATIVE QUERY CHẶN ĐỆ QUY HIBERNATE)
+    // 3. CÁC PHƯƠNG THỨC LỌC BÁN KÍNH TRÊN BẢN ĐỒ
     // =========================================================================
     @Query("SELECT b FROM BaoCaoSuCo b WHERE b.trangThai = com.traffic.common.ReportStatus.DA_XAC_MINH")
     List<BaoCaoSuCo> findActiveReportsForMap(
@@ -130,7 +128,6 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             @Param("oneDayAgo") LocalDateTime oneDayAgo
     );
 
-    // Lưu ý: Các hàm Native Query dưới đây cần map tên bảng/cột viết thường theo cấu trúc thực tế dưới Database của bạn (ví dụ: bao_cao_su_co, vi_do, kinh_do...)
     @Query(value = "SELECT DATE(b.thoi_gian_bao_cao) as report_date, COUNT(DISTINCT b.bao_cao_id) as count " +
             "FROM bao_cao_su_co b " +
             "WHERE b.trang_thai != 'DA_XOA' " +
@@ -183,15 +180,14 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
     @Query("UPDATE BaoCaoSuCo b SET b.trangThai = com.traffic.common.ReportStatus.DA_XOA WHERE b.baoCaoId = :id")
     void deleteReportSoft(@Param("id") Long id);
 
-    // Được gọi định kỳ bởi Scheduler để lấy riêng CHO_XAC_MINH đi tự động duyệt
-    @Query("SELECT b FROM BaoCaoSuCo b WHERE " +
-            "b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH AND (" +
-            "  ((b.loaiSuCo.loaiSuCoId = 1 OR b.loaiSuCo.loaiSuCoId = 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 30) OR " +
-            "  ((b.loaiSuCo.loaiSuCoId = 3 OR b.loaiSuCo.loaiSuCoId = 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 60)" +
-            ")")
+    // REFACTOR TO NATIVE: Khắc phục lỗi phân tích cú pháp cho Scheduler tự động duyệt bài overdue
+    @Query(value = "SELECT b.* FROM bao_cao_su_co b WHERE b.trang_thai = 'CHO_XAC_MINH' AND (" +
+            "  (b.loai_su_co_id IN (1, 2) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) > 30) OR " +
+            "  (b.loai_su_co_id IN (3, 4) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) > 60)" +
+            ")", nativeQuery = true)
     List<BaoCaoSuCo> findPendingReportsOverdue(@Param("now") LocalDateTime now);
 
-    @Query(value = "SELECT * FROM bao_cao_su_co b WHERE " +
+    @Query(value = "SELECT b.* FROM bao_cao_su_co b WHERE " +
             "b.loai_su_co_id = :loaiId AND " +
             "b.trang_thai = 'DA_XAC_MINH' AND " +
             "(6371000.0 * acos(cos(radians(:lat)) * cos(radians(b.vi_do)) * cos(radians(b.kinh_do - :lng)) + sin(radians(:lat)) * sin(radians(b.vi_do)))) <= :radius", nativeQuery = true)
