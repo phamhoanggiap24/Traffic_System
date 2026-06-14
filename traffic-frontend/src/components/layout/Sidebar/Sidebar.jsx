@@ -14,7 +14,6 @@ const Sidebar = ({ user, activeTab, setActiveTab, onLogout, isOpen, pendingRefre
   const fetchPendingCount = async () => {
     if (!isAdmin) return;
     try {
-      // Bổ sung tham số thời gian hiện tại để đồng bộ chính xác với hàm tính quá hạn ở DB
       const nowIsoString = new Date().toISOString();
       const res = await api.get('/report/admin/pending-count', {
         params: { now: nowIsoString }
@@ -40,7 +39,7 @@ const Sidebar = ({ user, activeTab, setActiveTab, onLogout, isOpen, pendingRefre
     }
   };
 
-  // Tự động tải lại dữ liệu định kỳ HOẶC khi nhận tín hiệu trực tiếp từ App.js
+  // Tự động tải lại dữ liệu sau mỗi 15 giây HOẶC tải lại ngay khi nhận tín hiệu từ App.js
   useEffect(() => {
     if (isAdmin) {
       fetchPendingCount();
@@ -49,18 +48,17 @@ const Sidebar = ({ user, activeTab, setActiveTab, onLogout, isOpen, pendingRefre
     }
   }, [user, isAdmin, pendingRefreshTrigger]);
 
-  // ĐỒNG BỘ THỜI GIAN THỰC: Lắng nghe hành động duyệt/xóa từ màn hình ReportList gửi sang
+  // Theo dõi ReportList truyền sang để cập nhật số Badge (ĐÃ SỬA HẾT LỖI BUILD)
   useEffect(() => {
     if (!isAdmin) return;
 
     const handleUpdateBadge = () => {
-      console.log("Nhận tín hiệu thay đổi trạng thái báo cáo -> Cập nhật Badge!");
       fetchPendingCount();
     };
 
     window.addEventListener('incident-verified', handleUpdateBadge);
     return () => window.removeEventListener('incident-verified', handleUpdateBadge);
-  }, [isAdmin, reports]); // Bổ sung dependency để kích hoạt lắng nghe chính xác
+  }, [isAdmin]);
 
   useEffect(() => {
     if (!isAdmin && (activeTab === 'reports' || activeTab === 'users' || activeTab === 'stats')) {
@@ -81,10 +79,12 @@ const Sidebar = ({ user, activeTab, setActiveTab, onLogout, isOpen, pendingRefre
 
         {isAdmin && (
           <>
+            {/* Quản lý người dùng */}
             <button className={activeTab === 'users' ? 'active' : ''} onClick={() => setActiveTab('users')}>
               <Users size={20} /> <span>Quản lý người dùng</span>
             </button>
 
+            {/* Danh sách báo cáo kèm số đếm */}
             <button
               className={activeTab === 'reports' ? 'active' : ''}
               onClick={() => setActiveTab('reports')}
@@ -95,7 +95,6 @@ const Sidebar = ({ user, activeTab, setActiveTab, onLogout, isOpen, pendingRefre
                 <span>Danh sách báo cáo</span>
               </div>
 
-              {/* SỬA HIỂN THỊ BADGE: Chỉ hiển thị khối màu đỏ nổi bật khi thực sự có số lượng > 0 */}
               {pendingCount > 0 ? (
                 <span className="sidebar-badge-count" style={{ backgroundColor: '#ef4444', color: 'white', padding: '2px 8px', borderRadius: '10px', fontSize: '12px', fontWeight: 'bold' }}>
                   {pendingCount}
@@ -110,6 +109,7 @@ const Sidebar = ({ user, activeTab, setActiveTab, onLogout, isOpen, pendingRefre
             </button>
           </>
         )}
+
         <div className="nav-spacer"></div>
       </nav>
     </aside>
