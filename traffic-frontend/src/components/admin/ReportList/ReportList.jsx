@@ -57,47 +57,46 @@ const ReportList = ({ setActiveTab }) => {
     return () => clearInterval(interval);
   }, []);
 
-  // Tính trạng thái thực tế dựa theo từng loại sự cố và bộ lọc hiện tại
-  const getEffectiveStatus = useCallback((item) => {
-    // 1. Nếu trạng thái đã được định đoạt cụ thể bởi Admin, giữ nguyên tuyệt đối
-    if (['DA_XAC_MINH', 'SAI_SU_THAT', 'AN_HIEN_THI', 'DA_XOA'].includes(item.trangThai)) {
-      return item.trangThai;
-    }
+   // Tính trạng thái thực tế dựa theo từng loại sự cố và bộ lọc hiện tại
+   const getEffectiveStatus = useCallback((item) => {
+     // Quy tắc 1: Nếu trạng thái đã được định đoạt cụ thể từ DB, giữ nguyên
+     if (['DA_XAC_MINH', 'SAI_SU_THAT', 'AN_HIEN_THI', 'DA_XOA'].includes(item.trangThai)) {
+       return item.trangThai;
+     }
 
-    // 2. Nếu Admin đang chủ động chọn một bộ lọc cụ thể tại Select Box, ép hiển thị đúng nhãn đó
-    if (selectedStatus === 'NGHI_VAN' && item.trangThai === 'NGHI_VAN') {
-      return 'NGHI_VAN';
-    }
-    if (selectedStatus === 'QUA_HAN') {
-      return 'QUA_HAN';
-    }
-    if (selectedStatus === 'CHO_XAC_MINH' && item.trangThai === 'CHO_XAC_MINH') {
-      return 'CHO_XAC_MINH';
-    }
+     // Quy tắc 2: Nếu Admin đang chủ động chọn bộ lọc cụ thể, bắt buộc hiển thị theo nhãn đó
+     if (selectedStatus === 'NGHI_VAN' && item.trangThai === 'NGHI_VAN') {
+       return 'NGHI_VAN';
+     }
+     if (selectedStatus === 'QUA_HAN' && item.trangThai === 'QUA_HAN') {
+       return 'QUA_HAN';
+     }
+     if (selectedStatus === 'CHO_XAC_MINH' && item.trangThai === 'CHO_XAC_MINH') {
+       return 'CHO_XAC_MINH';
+     }
 
-    // 3. Logic tính toán trạng thái tự động theo thời gian thực (Khi chọn bộ lọc "Tất cả")
-    try {
-      const reportTime = new Date(item.thoiGianBaoCao);
-      const currentTime = new Date();
-      const timeDiffMs = currentTime.getTime() - reportTime.getTime();
+     // Quy tắc 3: Tính toán trạng thái ảo theo thời gian (Chỉ áp dụng khi xem bộ lọc "Tất cả")
+     try {
+       const reportTime = new Date(item.thoiGianBaoCao);
+       const currentTime = new Date();
+       const timeDiffMs = currentTime.getTime() - reportTime.getTime();
 
-      // Ngưỡng thời gian hết hạn: 1, 2 = 30 phút | 3, 4 = 60 phút
-      let expireMinutes = 60;
-      if (item.loaiSuCoId === 1 || item.loaiSuCoId === 2) {
-        expireMinutes = 30;
-      }
-      const expireLimit = expireMinutes * 60 * 1000;
+       // Ngưỡng thời gian hết hạn: 1, 2 = 30 phút | 3, 4 = 60 phút
+       let expireMinutes = 60;
+       if (item.loaiSuCoId === 1 || item.loaiSuCoId === 2) {
+         expireMinutes = 30;
+       }
+       const expireLimit = expireMinutes * 60 * 1000;
 
-      // Nếu trạng thái gốc chưa xử lý và đã vượt quá ngưỡng thời gian -> Chuyển sang Quá hạn
-      if ((item.trangThai === 'CHO_XAC_MINH' || item.trangThai === 'NGHI_VAN') && timeDiffMs > expireLimit) {
-        return 'QUA_HAN';
-      }
-    } catch (err) {
-      console.error('Lỗi khi tính thời gian hết hạn:', err, item);
-    }
+       if ((item.trangThai === 'CHO_XAC_MINH' || item.trangThai === 'NGHI_VAN') && timeDiffMs > expireLimit) {
+         return 'QUA_HAN';
+       }
+     } catch (err) {
+       console.error('Lỗi khi tính thời gian hết hạn:', err, item);
+     }
 
-    return item.trangThai;
-  }, [selectedStatus]);
+     return item.trangThai;
+   }, [selectedStatus]);
 
   // Tải dữ liệu API từ Backend
   const loadReports = useCallback(async () => {

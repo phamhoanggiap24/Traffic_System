@@ -10,14 +10,11 @@ const Sidebar = ({ user, activeTab, setActiveTab, onLogout, isOpen, pendingRefre
 
   const [pendingCount, setPendingCount] = useState(0);
 
-  // Gọi API lấy số lượng báo cáo chưa duyệt
+  // Gọi API lấy số lượng báo cáo chưa duyệt (ĐÃ SỬA: Để Backend tự xử lý Timezone)
   const fetchPendingCount = async () => {
     if (!isAdmin) return;
     try {
-      const nowIsoString = new Date().toISOString();
-      const res = await api.get('/report/admin/pending-count', {
-        params: { now: nowIsoString }
-      });
+      const res = await api.get('/report/admin/pending-count');
 
       if (res && res.data) {
         let countValue = 0;
@@ -39,20 +36,21 @@ const Sidebar = ({ user, activeTab, setActiveTab, onLogout, isOpen, pendingRefre
     }
   };
 
-  // Tự động tải lại dữ liệu sau mỗi 15 giây HOẶC tải lại ngay khi nhận tín hiệu từ App.js
+  // Tự động tải lại dữ liệu sau mỗi 10 giây HOẶC tải lại ngay khi nhận tín hiệu từ App.js
   useEffect(() => {
     if (isAdmin) {
       fetchPendingCount();
-      const interval = setInterval(fetchPendingCount, 15000);
+      const interval = setInterval(fetchPendingCount, 10000);
       return () => clearInterval(interval);
     }
   }, [user, isAdmin, pendingRefreshTrigger]);
 
-  // Theo dõi ReportList truyền sang để cập nhật số Badge (ĐÃ SỬA HẾT LỖI BUILD)
+  // Lắng nghe sự kiện đồng bộ từ ReportList (ĐÃ SỬA: Đảm bảo chạy realtime 100%)
   useEffect(() => {
     if (!isAdmin) return;
 
     const handleUpdateBadge = () => {
+      console.log("Kích hoạt cập nhật số lượng Badge từ Event!");
       fetchPendingCount();
     };
 
@@ -68,9 +66,7 @@ const Sidebar = ({ user, activeTab, setActiveTab, onLogout, isOpen, pendingRefre
 
   return (
     <aside className={`sidebar ${isAdmin ? 'admin-mode' : ''} ${isOpen ? 'open' : ''}`}>
-      <div className="sidebar-logo">
-        TRAFFIC MAP
-      </div>
+      <div className="sidebar-logo">TRAFFIC MAP</div>
 
       <nav className="sidebar-nav">
         <button className={activeTab === 'map' ? 'active' : ''} onClick={() => setActiveTab('map')}>
@@ -79,12 +75,10 @@ const Sidebar = ({ user, activeTab, setActiveTab, onLogout, isOpen, pendingRefre
 
         {isAdmin && (
           <>
-            {/* Quản lý người dùng */}
             <button className={activeTab === 'users' ? 'active' : ''} onClick={() => setActiveTab('users')}>
               <Users size={20} /> <span>Quản lý người dùng</span>
             </button>
 
-            {/* Danh sách báo cáo kèm số đếm */}
             <button
               className={activeTab === 'reports' ? 'active' : ''}
               onClick={() => setActiveTab('reports')}
@@ -109,7 +103,6 @@ const Sidebar = ({ user, activeTab, setActiveTab, onLogout, isOpen, pendingRefre
             </button>
           </>
         )}
-
         <div className="nav-spacer"></div>
       </nav>
     </aside>
