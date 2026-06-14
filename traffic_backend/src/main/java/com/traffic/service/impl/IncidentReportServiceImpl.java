@@ -380,45 +380,36 @@ public class IncidentReportServiceImpl implements IncidentReportService {
             } catch (Exception e) { System.err.println("Lỗi parse ngày: " + e.getMessage()); }
         }
 
-        LocalDateTime currentNowVietnam = LocalDateTime.now();
+        // Tính toán mốc thời gian cố định bằng Java
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime timeLimit30 = now.minusMinutes(30);
+        LocalDateTime timeLimit60 = now.minusMinutes(60);
 
-        // 1. Nếu Admin chọn hẳn bộ lọc "QUA_HAN" (Bộ lọc ảo do Controller điều hướng sang hàm này)
+        // LỌC TÌM KIẾM THEO TAB "QUÁ HẠN" ảo
         if ("QUA_HAN".equals(status)) {
-            LocalDateTime now = LocalDateTime.now();
-            LocalDateTime timeLimit30 = now.minusMinutes(30);
-            LocalDateTime timeLimit60 = now.minusMinutes(60);
-
             return baoCaoSuCoRepository.findExpiredReports(
                             incidentTypeId, username, start, end, timeLimit30, timeLimit60, pageable)
                     .map(item -> {
                         ReportResponse dto = mapToDTO(item);
-                        // Trả về chữ "NGHI_VAN" giả lập cho Frontend dễ hiển thị màu sắc/nhãn nhãn
                         dto.setTrangThai(ReportStatus.valueOf("NGHI_VAN"));
                         return dto;
                     });
         }
 
+        // LỌC TÌM KIẾM THEO TAB "NGHI VẤN" (Chỉ lấy các bài chưa quá hạn, KO dùng chung findWithFilters nữa)
+        if ("NGHI_VAN".equals(status)) {
+            return baoCaoSuCoRepository.findActiveSuspectReports(
+                            incidentTypeId, username, start, end, timeLimit30, timeLimit60, pageable)
+                    .map(this::mapToDTO); // Trả ra data sạch 100%, không bao giờ chứa phần tử null
+        }
+
+        // CÁC TAB CÒN LẠI (CHO_XAC_MINH, DA_XAC_MINH, SAI_SU_THAT...)
         ReportStatus enumStatus = null;
         if (status != null && !status.trim().isEmpty()) {
             try { enumStatus = ReportStatus.valueOf(status.trim()); } catch (Exception e) {}
         }
 
         Page<BaoCaoSuCo> reportsPage = baoCaoSuCoRepository.findWithFilters(incidentTypeId, username, enumStatus, start, end, pageable);
-
-        // 2. Nếu Admin xem mục NGHI_VAN: Lọc bỏ những bài đã để quá lâu (bắt chúng sang mục Quá hạn)
-        if ("NGHI_VAN".equals(status)) {
-            return reportsPage.map(item -> {
-                long loaiId = item.getLoaiSuCo().getLoaiSuCoId();
-                long diffMinutes = java.time.Duration.between(item.getThoiGianBaoCao(), currentNowVietnam).toMinutes();
-                long limit = (loaiId == 1 || loaiId == 2) ? 30 : 60;
-
-                if (diffMinutes > limit) {
-                    return null; // Trả về null hoặc xử lý filter loại bỏ bài cũ ở Frontend
-                }
-                return mapToDTO(item);
-            });
-        }
-
         return reportsPage.map(this::mapToDTO);
     }
 

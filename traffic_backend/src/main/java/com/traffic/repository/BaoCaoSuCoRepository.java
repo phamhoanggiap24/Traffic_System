@@ -79,7 +79,7 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             Pageable pageable
     );
 
-    // REFACTOR TO NATIVE: Khắc phục lỗi phân tích cú pháp cho tab QUÁ HẠN ảo
+    // QUÁ HẠN (Thời gian báo cáo NHỎ HƠN mốc giới hạn)
     @Query(value = "SELECT b FROM BaoCaoSuCo b WHERE " +
             "(:loaiSuCoId IS NULL OR b.loaiSuCo.loaiSuCoId = :loaiSuCoId) AND " +
             "(:tenDangNhap IS NULL OR :tenDangNhap = '' OR b.taiKhoan.tenDangNhap LIKE CONCAT('%', :tenDangNhap, '%')) AND " +
@@ -87,15 +87,7 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             "b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN AND (" +
             "  (b.loaiSuCo.loaiSuCoId IN (1, 2) AND b.thoiGianBaoCao < :timeLimit30) OR " +
             "  (b.loaiSuCo.loaiSuCoId IN (3, 4) AND b.thoiGianBaoCao < :timeLimit60)" +
-            ")",
-            countQuery = "SELECT COUNT(b) FROM BaoCaoSuCo b WHERE " +
-                    "(:loaiSuCoId IS NULL OR b.loaiSuCo.loaiSuCoId = :loaiSuCoId) AND " +
-                    "(:tenDangNhap IS NULL OR :tenDangNhap = '' OR b.taiKhoan.tenDangNhap LIKE CONCAT('%', :tenDangNhap, '%')) AND " +
-                    "(:start IS NULL OR b.thoiGianBaoCao BETWEEN :start AND :end) AND " +
-                    "b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN AND (" +
-                    "  (b.loaiSuCo.loaiSuCoId IN (1, 2) AND b.thoiGianBaoCao < :timeLimit30) OR " +
-                    "  (b.loaiSuCo.loaiSuCoId IN (3, 4) AND b.thoiGianBaoCao < :timeLimit60)" +
-                    ")")
+            ")")
     Page<BaoCaoSuCo> findExpiredReports(
             @Param("loaiSuCoId") Integer loaiSuCoId,
             @Param("tenDangNhap") String tenDangNhap,
@@ -106,7 +98,25 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             Pageable pageable
     );
 
-    // REFACTOR TO NATIVE: Giải phóng bộ nhớ cho hàm đếm thông báo đang hoạt động
+    @Query(value = "SELECT b FROM BaoCaoSuCo b WHERE " +
+            "(:loaiSuCoId IS NULL OR b.loaiSuCo.loaiSuCoId = :loaiSuCoId) AND " +
+            "(:tenDangNhap IS NULL OR :tenDangNhap = '' OR b.taiKhoan.tenDangNhap LIKE CONCAT('%', :tenDangNhap, '%')) AND " +
+            "(:start IS NULL OR b.thoiGianBaoCao BETWEEN :start AND :end) AND " +
+            "b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN AND (" +
+            "  (b.loaiSuCo.loaiSuCoId IN (1, 2) AND b.thoiGianBaoCao >= :timeLimit30) OR " +
+            "  (b.loaiSuCo.loaiSuCoId IN (3, 4) AND b.thoiGianBaoCao >= :timeLimit60)" +
+            ")")
+    Page<BaoCaoSuCo> findActiveSuspectReports(
+            @Param("loaiSuCoId") Integer loaiSuCoId,
+            @Param("tenDangNhap") String tenDangNhap,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            @Param("timeLimit30") LocalDateTime timeLimit30,
+            @Param("timeLimit60") LocalDateTime timeLimit60,
+            Pageable pageable
+    );
+
+    // NGHI VẤN CHƯA QUÁ HẠN (Thời gian báo cáo LỚN HƠN HOẶC BẰNG mốc giới hạn)
     @Query(value = "SELECT COUNT(*) FROM bao_cao_su_co b WHERE b.trang_thai != 'DA_XOA' AND (" +
             "  (b.trang_thai = 'CHO_XAC_MINH' AND NOT (" +
             "    (b.loai_su_co_id IN (1, 2) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) > 30) OR " +
