@@ -2,17 +2,14 @@
  * Utility functions cho format thời gian với timezone Việt Nam (UTC+7)
  */
 
-/**
- * Format thời gian đầy đủ (ngày, tháng, năm, giờ, phút, giây)
- * @param {string|Date} dateString - Chuỗi thời gian hoặc Date object
- * @returns {string} Thời gian format theo timezone Asia/Ho_Chi_Minh
- */
 export const formatTimeWithTimezone = (dateString) => {
   try {
+    if (!dateString) return '';
+
+    // Đọc chuỗi thời gian chuẩn từ Backend trả về
     const date = new Date(dateString);
 
-    const vnDate = new Date(date.getTime() + (7 * 60 * 60 * 1000));
-
+    // Sử dụng Intl để định dạng hiển thị chuẩn theo múi giờ Việt Nam
     const formatter = new Intl.DateTimeFormat('vi-VN', {
       year: 'numeric',
       month: '2-digit',
@@ -20,10 +17,10 @@ export const formatTimeWithTimezone = (dateString) => {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
-      timeZone: 'Asia/Ho_Chi_Minh'
+      timeZone: 'Asia/Ho_Chi_Minh' // Đảm bảo đồng bộ hiển thị theo múi giờ VN
     });
 
-    return formatter.format(vnDate);
+    return formatter.format(date);
   } catch (err) {
     console.error('Lỗi format time:', err);
     return dateString;
