@@ -387,26 +387,26 @@ public class IncidentReportServiceImpl implements IncidentReportService {
 
         LocalDateTime currentNowVietnam = ZonedDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDateTime();
 
-        // Nếu chọn lọc danh sách quá hạn
+        // Xử lý riêng trường hợp Quá Hạn: Gọi hàm chuyên biệt đã cấu hình chuẩn TIMESTAMPDIFF
         if ("QUA_HAN".equals(status)) {
             return baoCaoSuCoRepository.findExpiredReports(
                             incidentTypeId, username, start, end, currentNowVietnam, pageable)
                     .map(this::mapToDTO);
         }
 
-        // Lọc các trạng thái Enum
+        // Lọc các trạng thái Enum thông thường một cách an toàn
         ReportStatus enumStatus = null;
         if (status != null && !status.trim().isEmpty()) {
             try {
                 enumStatus = ReportStatus.valueOf(status.trim());
             } catch (IllegalArgumentException e) {
-                System.err.println("Trạng thái lạ từ client gửi lên: " + status);
+                System.err.println("Trạng thái lạ hoặc rỗng từ client gửi lên: " + status);
             }
         }
 
-        // Lọc tổng hợp bình thường
+        // Lọc tổng hợp bình thường với Enum sạch, không lồng logic chuỗi lằng nhằng
         return baoCaoSuCoRepository.findWithFilters(
-                incidentTypeId, username, enumStatus, start, end, currentNowVietnam, pageable)
+                        incidentTypeId, username, enumStatus, start, end, pageable)
                 .map(this::mapToDTO);
     }
 

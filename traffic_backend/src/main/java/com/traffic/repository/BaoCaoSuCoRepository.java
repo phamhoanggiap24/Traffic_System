@@ -57,51 +57,26 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             @Param("endDate") LocalDateTime endDate);
 
     // =========================================================================
-    // 2. BỘ LỌC DANH SÁCH QUẢN LÝ (ĐỒNG BỘ KIỂU INTEGER THEO IMPL)
+    // 2. BỘ LỌC DANH SÁCH QUẢN LÝ (BẢN SỬA ĐỒNG BỘ KIỂU ENUM CHUẨN HQL)
     // =========================================================================
     @Query(value = "SELECT b FROM BaoCaoSuCo b WHERE " +
             "(:loaiSuCoId IS NULL OR b.loaiSuCo.loaiSuCoId = :loaiSuCoId) AND " +
             "(:tenDangNhap IS NULL OR :tenDangNhap = '' OR b.taiKhoan.tenDangNhap LIKE CONCAT('%', :tenDangNhap, '%')) AND " +
             "(:start IS NULL OR b.thoiGianBaoCao BETWEEN :start AND :end) AND " +
             "(b.trangThai != com.traffic.common.ReportStatus.DA_XOA) AND " +
-            "(" +
-            "  (:trangThai IS NULL) OR " +
-            "  (:trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH AND b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH AND (" +
-            "       ((b.loaiSuCo.loaiSuCoId = 1 OR b.loaiSuCo.loaiSuCoId = 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) <= 30) OR " +
-            "       ((b.loaiSuCo.loaiSuCoId = 3 OR b.loaiSuCo.loaiSuCoId = 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) <= 60)" +
-            "  )) OR " +
-            "  (:trangThai = com.traffic.common.ReportStatus.NGHI_VAN AND b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN) OR " +
-            "  (:trangThai = com.traffic.common.ReportStatus.QUA_HAN AND (b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH OR b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN) AND (" +
-            "       ((b.loaiSuCo.loaiSuCoId = 1 OR b.loaiSuCo.loaiSuCoId = 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 30) OR " +
-            "       ((b.loaiSuCo.loaiSuCoId = 3 OR b.loaiSuCo.loaiSuCoId = 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 60)" +
-            "  )) OR " +
-            "  (:trangThai != com.traffic.common.ReportStatus.CHO_XAC_MINH AND :trangThai != com.traffic.common.ReportStatus.QUA_HAN AND b.trangThai = :trangThai)" +
-            ")",
+            "(:trangThai IS NULL OR b.trangThai = :trangThai)",
             countQuery = "SELECT COUNT(b) FROM BaoCaoSuCo b WHERE " +
                     "(:loaiSuCoId IS NULL OR b.loaiSuCo.loaiSuCoId = :loaiSuCoId) AND " +
                     "(:tenDangNhap IS NULL OR :tenDangNhap = '' OR b.taiKhoan.tenDangNhap LIKE CONCAT('%', :tenDangNhap, '%')) AND " +
                     "(:start IS NULL OR b.thoiGianBaoCao BETWEEN :start AND :end) AND " +
                     "(b.trangThai != com.traffic.common.ReportStatus.DA_XOA) AND " +
-                    "(" +
-                    "  (:trangThai IS NULL) OR " +
-                    "  (:trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH AND b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH AND (" +
-                    "       ((b.loaiSuCo.loaiSuCoId = 1 OR b.loaiSuCo.loaiSuCoId = 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) <= 30) OR " +
-                    "       ((b.loaiSuCo.loaiSuCoId = 3 OR b.loaiSuCo.loaiSuCoId = 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) <= 60)" +
-                    "  )) OR " +
-                    "  (:trangThai = com.traffic.common.ReportStatus.NGHI_VAN AND b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN) OR " +
-                    "  (:trangThai = com.traffic.common.ReportStatus.QUA_HAN AND (b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH OR b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN) AND (" +
-                    "       ((b.loaiSuCo.loaiSuCoId = 1 OR b.loaiSuCo.loaiSuCoId = 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 30) OR " +
-                    "       ((b.loaiSuCo.loaiSuCoId = 3 OR b.loaiSuCo.loaiSuCoId = 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 60)" +
-                    "  )) OR " +
-                    "  (:trangThai != com.traffic.common.ReportStatus.CHO_XAC_MINH AND :trangThai != com.traffic.common.ReportStatus.QUA_HAN AND b.trangThai = :trangThai)" +
-                    ")")
+                    "(:trangThai IS NULL OR b.trangThai = :trangThai)")
     Page<BaoCaoSuCo> findWithFilters(
-            @Param("loaiSuCoId") Integer loaiSuCoId, // Đã giữ nguyên Integer khớp Impl
+            @Param("loaiSuCoId") Integer loaiSuCoId,
             @Param("tenDangNhap") String tenDangNhap,
             @Param("trangThai") ReportStatus trangThai,
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end,
-            @Param("now") LocalDateTime now,
             Pageable pageable
     );
 
@@ -122,7 +97,7 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
                     "  ((b.loaiSuCo.loaiSuCoId = 3 OR b.loaiSuCo.loaiSuCoId = 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 60)" +
                     ")")
     Page<BaoCaoSuCo> findExpiredReports(
-            @Param("loaiSuCoId") Integer loaiSuCoId, // Đã giữ nguyên Integer khớp Impl
+            @Param("loaiSuCoId") Integer loaiSuCoId,
             @Param("tenDangNhap") String tenDangNhap,
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end,
@@ -130,21 +105,13 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             Pageable pageable
     );
 
-    @Query("SELECT COUNT(b) FROM BaoCaoSuCo b WHERE " +
-            "b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH AND (" +
-            "  ((b.loaiSuCo.loaiSuCoId = 1 OR b.loaiSuCo.loaiSuCoId = 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) <= 30) OR " +
-            "  ((b.loaiSuCo.loaiSuCoId = 3 OR b.loaiSuCo.loaiSuCoId = 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) <= 60)" +
-            ")")
+    @Query("SELECT COUNT(b) FROM BaoCaoSuCo b WHERE b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH")
     long countPendingReports(@Param("now") LocalDateTime now);
 
     // =========================================================================
     // 3. CÁC PHƯƠNG THỨC LỌC BÁN KÍNH TRÊN BẢN ĐỒ
     // =========================================================================
-    @Query("SELECT b FROM BaoCaoSuCo b WHERE " +
-            "b.trangThai = com.traffic.common.ReportStatus.DA_XAC_MINH AND (" +
-            "  ((b.loaiSuCo.loaiSuCoId = 1 OR b.loaiSuCo.loaiSuCoId = 2) AND b.thoiGianXacMinh >= :threeHoursAgo) OR " +
-            "  ((b.loaiSuCo.loaiSuCoId = 3 OR b.loaiSuCo.loaiSuCoId = 4) AND b.thoiGianXacMinh >= :oneDayAgo)" +
-            ")")
+    @Query("SELECT b FROM BaoCaoSuCo b WHERE b.trangThai = com.traffic.common.ReportStatus.DA_XAC_MINH")
     List<BaoCaoSuCo> findActiveReportsForMap(
             @Param("threeHoursAgo") LocalDateTime threeHoursAgo,
             @Param("oneDayAgo") LocalDateTime oneDayAgo
@@ -202,13 +169,9 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
     @Query("UPDATE BaoCaoSuCo b SET b.trangThai = com.traffic.common.ReportStatus.DA_XOA WHERE b.baoCaoId = :id")
     void deleteReportSoft(@Param("id") Long id);
 
-    @Query("SELECT b FROM BaoCaoSuCo b WHERE b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH AND (" +
-            "  ((b.loaiSuCo.loaiSuCoId = 1 OR b.loaiSuCo.loaiSuCoId = 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 30) OR " +
-            "  ((b.loaiSuCo.loaiSuCoId = 3 OR b.loaiSuCo.loaiSuCoId = 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 60)" +
-            ")")
+    @Query("SELECT b FROM BaoCaoSuCo b WHERE b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH")
     List<BaoCaoSuCo> findPendingReportsOverdue(@Param("now") LocalDateTime now);
 
-    // ĐÃ FIX lỗi gạch đỏ (;) và chuyển kiểu dữ liệu tham số để nhận giá trị unboxing tự động từ file Impl của bạn
     @Query("SELECT b FROM BaoCaoSuCo b WHERE " +
             "b.loaiSuCo.loaiSuCoId = :loaiId AND " +
             "b.trangThai = com.traffic.common.ReportStatus.DA_XAC_MINH AND " +
