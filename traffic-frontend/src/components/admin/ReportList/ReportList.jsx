@@ -57,44 +57,50 @@ const ReportList = ({ setActiveTab }) => {
     return () => clearInterval(interval);
   }, []);
 
-  /// Tính trạng thái thực tế dựa theo từng loại sự cố và bộ lọc hiện tại
-   const getEffectiveStatus = useCallback((item) => {
-     // Nếu trạng thái đã được định đoạt cụ thể, giữ nguyên
-     if (['DA_XAC_MINH', 'SAI_SU_THAT', 'AN_HIEN_THI', 'DA_XOA'].includes(item.trangThai)) {
-       return item.trangThai;
-     }
+  // Tính trạng thái thực tế dựa theo từng loại sự cố và bộ lọc hiện tại
+  const getEffectiveStatus = useCallback((item) => {
+    // Nếu trạng thái đã được định đoạt cụ thể, giữ nguyên
+    if (['DA_XAC_MINH', 'SAI_SU_THAT', 'AN_HIEN_THI', 'DA_XOA'].includes(item.trangThai)) {
+      return item.trangThai;
+    }
 
-     // SỬA LỖI LẪN LỘN BỘ LỌC:
-     // Nếu Admin đang lọc riêng "NGHI_VAN" hoặc "QUA_HAN", hiển thị đúng theo bộ lọc được chọn
-     if (selectedStatus === 'NGHI_VAN' && item.trangThai === 'NGHI_VAN') {
-       return 'NGHI_VAN';
-     }
-     if (selectedStatus === 'QUA_HAN') {
-       return 'QUA_HAN';
-     }
+    if (selectedStatus === 'NGHI_VAN' && item.trangThai === 'NGHI_VAN') {
+      return 'NGHI_VAN';
+    }
+    if (selectedStatus === 'QUA_HAN') {
+      return 'QUA_HAN';
+    }
 
-     // Kiểm tra thời gian hết hạn tự động cho trường hợp xem "Tất cả" hoặc "Chờ duyệt"
-     try {
-       const reportTime = new Date(item.thoiGianBaoCao);
-       const currentTime = new Date();
-       const timeDiffMs = currentTime.getTime() - reportTime.getTime();
+    try {
+      const reportTime = new Date(item.thoiGianBaoCao);
+      const currentTime = new Date();
 
-       // Logic đồng bộ mốc thời gian: 1, 2 = 30 phút | 3, 4 = 60 phút
-       let expireMinutes = 60;
-       if (item.loaiSuCoId === 1 || item.loaiSuCoId === 2) {
-         expireMinutes = 30;
-       }
-       const expireLimit = expireMinutes * 60 * 1000;
+      // Tính toán khoảng cách mili-giây thuần túy
+      let timeDiffMs = currentTime.getTime() - reportTime.getTime();
 
-       if ((item.trangThai === 'CHO_XAC_MINH' || item.trangThai === 'NGHI_VAN') && timeDiffMs > expireLimit) {
-         return 'QUA_HAN';
-       }
-     } catch (err) {
-       console.error('Lỗi khi tính thời gian hết hạn:', err, item);
-     }
+      if (timeDiffMs >= 7 * 60 * 60 * 1000) {
+        timeDiffMs = timeDiffMs - (7 * 60 * 60 * 1000);
+      } else if (timeDiffMs < 0 && Math.abs(timeDiffMs) <= 7 * 60 * 60 * 1000) {
+        timeDiffMs = (7 * 60 * 60 * 1000) + timeDiffMs;
+      }
 
-     return item.trangThai;
-   }, [selectedStatus]);
+      // Ngưỡng thời gian hết hạn: 1, 2 = 30 phút | 3, 4 = 60 phút
+      let expireMinutes = 60;
+      if (item.loaiSuCoId === 1 || item.loaiSuCoId === 2) {
+        expireMinutes = 30;
+      }
+      const expireLimit = expireMinutes * 60 * 1000;
+
+      // Chỉ đánh dấu QUA_HAN nếu thời gian thực tế trôi qua vượt ngưỡng
+      if ((item.trangThai === 'CHO_XAC_MINH' || item.trangThai === 'NGHI_VAN') && timeDiffMs > expireLimit) {
+        return 'QUA_HAN';
+      }
+    } catch (err) {
+      console.error('Lỗi khi tính thời gian hết hạn:', err, item);
+    }
+
+    return item.trangThai;
+  }, [selectedStatus]);
 
   // Tải dữ liệu API từ Backend
   const loadReports = useCallback(async () => {
