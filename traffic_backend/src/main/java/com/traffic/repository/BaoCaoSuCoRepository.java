@@ -57,10 +57,10 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             @Param("endDate") LocalDateTime endDate);
 
     // =========================================================================
-    // 2. BỘ LỌC DANH SÁCH QUẢN LÝ (ĐÃ FIX LỖI CÚ PHÁP VÀ LOGIC QUÁ HẠN)
+    // 2. BỘ LỌC DANH SÁCH QUẢN LÝ (SỬ DỤNG CONCAT THAY CHO % LỖI CÚ PHÁP)
     // =========================================================================
     @Query("SELECT b FROM BaoCaoSuCo b WHERE " +
-            "(:tenDangNhap IS NULL OR b.taiKhoan.tenDangNhap LIKE %:tenDangNhap%) AND " +
+            "(:tenDangNhap IS NULL OR b.taiKhoan.tenDangNhap LIKE CONCAT('%', :tenDangNhap, '%')) AND " +
             "(:loaiSuCoId IS NULL OR b.loaiSuCo.loaiSuCoId = :loaiSuCoId) AND " +
             "(:start IS NULL OR b.thoiGianBaoCao BETWEEN :start AND :end) AND " +
             "(b.trangThai != com.traffic.common.ReportStatus.DA_XOA) AND " +
@@ -88,7 +88,7 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
     );
 
     @Query("SELECT b FROM BaoCaoSuCo b WHERE " +
-            "(:tenDangNhap IS NULL OR b.taiKhoan.tenDangNhap LIKE %:tenDangNhap%) AND " +
+            "(:tenDangNhap IS NULL OR b.taiKhoan.tenDangNhap LIKE CONCAT('%', :tenDangNhap, '%')) AND " +
             "(:loaiSuCoId IS NULL OR b.loaiSuCo.loaiSuCoId = :loaiSuCoId) AND " +
             "(:start IS NULL OR b.thoiGianBaoCao BETWEEN :start AND :end) AND " +
             "(b.trangThai IN (com.traffic.common.ReportStatus.CHO_XAC_MINH, com.traffic.common.ReportStatus.NGHI_VAN)) AND (" +
