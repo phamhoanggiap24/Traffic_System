@@ -84,7 +84,8 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             "(:loaiSuCoId IS NULL OR b.loaiSuCo.loaiSuCoId = :loaiSuCoId) AND " +
             "(:tenDangNhap IS NULL OR :tenDangNhap = '' OR b.taiKhoan.tenDangNhap LIKE CONCAT('%', :tenDangNhap, '%')) AND " +
             "(:start IS NULL OR b.thoiGianBaoCao BETWEEN :start AND :end) AND " +
-            "(b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH OR b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN) AND (" +
+            "b.trangThai != com.traffic.common.ReportStatus.DA_XOA AND " +
+            "b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN AND (" + // Trạng thái DB vẫn là NGHI_VAN
             "  ((b.loaiSuCo.loaiSuCoId = 1 OR b.loaiSuCo.loaiSuCoId = 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 30) OR " +
             "  ((b.loaiSuCo.loaiSuCoId = 3 OR b.loaiSuCo.loaiSuCoId = 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 60)" +
             ")",
@@ -92,7 +93,8 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
                     "(:loaiSuCoId IS NULL OR b.loaiSuCo.loaiSuCoId = :loaiSuCoId) AND " +
                     "(:tenDangNhap IS NULL OR :tenDangNhap = '' OR b.taiKhoan.tenDangNhap LIKE CONCAT('%', :tenDangNhap, '%')) AND " +
                     "(:start IS NULL OR b.thoiGianBaoCao BETWEEN :start AND :end) AND " +
-                    "(b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH OR b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN) AND (" +
+                    "b.trangThai != com.traffic.common.ReportStatus.DA_XOA AND " +
+                    "b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN AND (" +
                     "  ((b.loaiSuCo.loaiSuCoId = 1 OR b.loaiSuCo.loaiSuCoId = 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 30) OR " +
                     "  ((b.loaiSuCo.loaiSuCoId = 3 OR b.loaiSuCo.loaiSuCoId = 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 60)" +
                     ")")
@@ -106,9 +108,15 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
     );
 
     @Query("SELECT COUNT(b) FROM BaoCaoSuCo b WHERE " +
-            "(b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH) AND NOT (" +
+            "b.trangThai != com.traffic.common.ReportStatus.DA_XOA AND " +
+            "((b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH AND NOT (" +
             "  ((b.loaiSuCo.loaiSuCoId = 1 OR b.loaiSuCo.loaiSuCoId = 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 30) OR " +
             "  ((b.loaiSuCo.loaiSuCoId = 3 OR b.loaiSuCo.loaiSuCoId = 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 60)" +
+            ")) OR " +
+            "(b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN AND NOT (" +
+            "  ((b.loaiSuCo.loaiSuCoId = 1 OR b.loaiSuCo.loaiSuCoId = 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 30) OR " +
+            "  ((b.loaiSuCo.loaiSuCoId = 3 OR b.loaiSuCo.loaiSuCoId = 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 60)" +
+            "))" +
             ")")
     long countPendingReports(@Param("now") LocalDateTime now);
 
@@ -173,7 +181,11 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
     @Query("UPDATE BaoCaoSuCo b SET b.trangThai = com.traffic.common.ReportStatus.DA_XOA WHERE b.baoCaoId = :id")
     void deleteReportSoft(@Param("id") Long id);
 
-    @Query("SELECT b FROM BaoCaoSuCo b WHERE b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH")
+    @Query("SELECT b FROM BaoCaoSuCo b WHERE " +
+            "b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH AND (" +
+            "  ((b.loaiSuCo.loaiSuCoId = 1 OR b.loaiSuCo.loaiSuCoId = 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 30) OR " +
+            "  ((b.loaiSuCo.loaiSuCoId = 3 OR b.loaiSuCo.loaiSuCoId = 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 60)" +
+            ")")
     List<BaoCaoSuCo> findPendingReportsOverdue(@Param("now") LocalDateTime now);
 
     @Query("SELECT b FROM BaoCaoSuCo b WHERE " +

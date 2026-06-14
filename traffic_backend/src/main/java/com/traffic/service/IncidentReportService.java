@@ -5,6 +5,7 @@ import com.traffic.dto.response.ReportResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface IncidentReportService {
@@ -14,5 +15,6 @@ public interface IncidentReportService {
     void deleteReport(Long id);
     void removeReportFromMap(Long id);
     List<ReportResponse> getPublicMapReports();
-    long getPendingReportsCount();
+    Page<ReportResponse> getExpiredReportsPage(Integer loaiSuCoId, String tenDangNhap, String ngay, Pageable pageable);
+    long getPendingReportsCount(LocalDateTime now);
 }

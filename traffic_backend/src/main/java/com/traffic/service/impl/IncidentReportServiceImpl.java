@@ -15,8 +15,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+
+import java.time.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,8 +26,6 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -374,40 +372,50 @@ public class IncidentReportServiceImpl implements IncidentReportService {
     public Page<ReportResponse> getFilteredReportsPage(Integer incidentTypeId, String username, String status, String date, Pageable pageable) {
         LocalDateTime start = null;
         LocalDateTime end = null;
-
         if (date != null && !date.trim().isEmpty()) {
             try {
                 LocalDate localDate = LocalDate.parse(date.trim());
                 start = localDate.atStartOfDay();
                 end = localDate.atTime(23, 59, 59);
-            } catch (Exception e) {
-                System.err.println("Lỗi parse định dạng ngày: " + e.getMessage());
-            }
+            } catch (Exception e) { System.err.println("Lỗi parse ngày: " + e.getMessage()); }
         }
 
-        LocalDateTime currentNowVietnam = ZonedDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDateTime();
+        LocalDateTime currentNowVietnam = LocalDateTime.now();
 
-        // Xử lý riêng trường hợp Quá Hạn: Gọi hàm chuyên biệt đã cấu hình chuẩn TIMESTAMPDIFF
+        // 1. Nếu Admin chọn hẳn bộ lọc "QUA_HAN" (Bộ lọc ảo do Controller điều hướng sang hàm này)
         if ("QUA_HAN".equals(status)) {
             return baoCaoSuCoRepository.findExpiredReports(
                             incidentTypeId, username, start, end, currentNowVietnam, pageable)
-                    .map(this::mapToDTO);
+                    .map(item -> {
+                        ReportResponse dto = mapToDTO(item);
+                        // Trả về chữ "QUA_HAN" giả lập cho Frontend dễ hiển thị màu sắc/nhãn nhãn
+                        dto.setTrangThai(ReportStatus.valueOf("NGHI_VAN"));
+                        return dto;
+                    });
         }
 
-        // Lọc các trạng thái Enum thông thường một cách an toàn
         ReportStatus enumStatus = null;
         if (status != null && !status.trim().isEmpty()) {
-            try {
-                enumStatus = ReportStatus.valueOf(status.trim());
-            } catch (IllegalArgumentException e) {
-                System.err.println("Trạng thái lạ hoặc rỗng từ client gửi lên: " + status);
-            }
+            try { enumStatus = ReportStatus.valueOf(status.trim()); } catch (Exception e) {}
         }
 
-        // Lọc tổng hợp bình thường với Enum sạch, không lồng logic chuỗi lằng nhằng
-        return baoCaoSuCoRepository.findWithFilters(
-                        incidentTypeId, username, enumStatus, start, end, pageable)
-                .map(this::mapToDTO);
+        Page<BaoCaoSuCo> reportsPage = baoCaoSuCoRepository.findWithFilters(incidentTypeId, username, enumStatus, start, end, pageable);
+
+        // 2. Nếu Admin xem mục NGHI_VAN: Lọc bỏ những bài đã để quá lâu (bắt chúng sang mục Quá hạn)
+        if ("NGHI_VAN".equals(status)) {
+            return reportsPage.map(item -> {
+                long loaiId = item.getLoaiSuCo().getLoaiSuCoId();
+                long diffMinutes = java.time.Duration.between(item.getThoiGianBaoCao(), currentNowVietnam).toMinutes();
+                long limit = (loaiId == 1 || loaiId == 2) ? 30 : 60;
+
+                if (diffMinutes > limit) {
+                    return null; // Trả về null hoặc xử lý filter loại bỏ bài cũ ở Frontend
+                }
+                return mapToDTO(item);
+            });
+        }
+
+        return reportsPage.map(this::mapToDTO);
     }
 
     // LẤY DANH SÁCH CÁC BÁO CÁO ĐANG HOẠT ĐỘNG ĐỂ HIỂN THỊ LÊN BẢN ĐỒ CÔNG KHAI
@@ -420,11 +428,36 @@ public class IncidentReportServiceImpl implements IncidentReportService {
                 .stream().map(this::mapToDTO).collect(Collectors.toList());
     }
 
+    // Hàm lấy danh sách báo cáo Quá hạn thực tế
+    @Override
+    public Page<ReportResponse> getExpiredReportsPage(Integer loaiSuCoId, String tenDangNhap, String ngay, Pageable pageable) {
+        LocalDateTime start = null;
+        LocalDateTime end = null;
+
+        if (ngay != null && !ngay.trim().isEmpty()) {
+            try {
+                LocalDate localDate = LocalDate.parse(ngay.trim());
+                start = localDate.atStartOfDay();
+                end = localDate.atTime(LocalTime.MAX);
+            } catch (Exception e) {
+                System.err.println("Lỗi parse ngày mục quá hạn: " + e.getMessage());
+            }
+        }
+
+        // ĐỒNG BỘ MÚI GIỜ: Sử dụng đồng nhất LocalDateTime.now() theo thời gian thực của máy chủ kết nối Database
+        Page<BaoCaoSuCo> expiredPage = baoCaoSuCoRepository.findExpiredReports(
+                loaiSuCoId, tenDangNhap, start, end, LocalDateTime.now(), pageable
+        );
+
+        // ĐÃ SỬA: Đổi từ convertToReportResponse (không tồn tại) sang hàm mapToDTO chuẩn của bạn
+        return expiredPage.map(this::mapToDTO);
+    }
+
     // ĐẾM SỐ LƯỢNG BÁO CÁO CHƯA DUYỆT
     @Override
-    public long getPendingReportsCount() {
-        LocalDateTime currentNowVietnam = ZonedDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDateTime();
-        return baoCaoSuCoRepository.countPendingReports(currentNowVietnam);
+    public long getPendingReportsCount(LocalDateTime now) {
+        LocalDateTime serverTime = (now != null) ? now : LocalDateTime.now();
+        return baoCaoSuCoRepository.countPendingReports(serverTime);
     }
 
     private boolean handleMergeIncident(BaoCaoSuCo newIncident) {
