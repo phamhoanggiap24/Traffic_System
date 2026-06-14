@@ -1,15 +1,20 @@
 package com.traffic.dto.response;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
-import java.sql.Date;
+import lombok.NoArgsConstructor;
 
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class TrafficTimeStatsResponse {
-    private Date reportDate;
+    private String reportDate;
     private Long totalReports;
 
     public TrafficTimeStatsResponse(Object reportDate, Object totalReports) {
-        this.reportDate = (Date) reportDate;
-        this.totalReports = ((Number) totalReports).longValue();
+        this.reportDate = reportDate != null ? reportDate.toString() : "";
+        this.totalReports = totalReports != null ? ((Number) totalReports).longValue() : 0L;
     }
 }

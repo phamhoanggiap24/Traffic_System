@@ -15,7 +15,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -71,20 +73,17 @@ public class TrafficAnalyticsServiceImpl implements TrafficAnalyticsService {
                 actualCamerasInRadius = 1;
             }
 
-            // Lấy dữ liệu đếm số lượng sự cố nằm trong bán kính
-            TrafficMetricsOverviewResponse radiusOverview = baoCaoSuCoRepository.getOverviewWithinRadius(
+            // Gọi hàm Native Query nhận về kiểu dữ liệu primitive long thay vì DTO phức tạp
+            long totalIncidentsInRadius = baoCaoSuCoRepository.getOverviewWithinRadiusNative(
                     filter.getLat(), filter.getLng(), filter.getRadius(), start, end
             );
 
-            if (radiusOverview != null) {
-                return new TrafficMetricsOverviewResponse(
-                        radiusOverview.getTotalIncidentsToday(),
-                        0L,
-                        actualCamerasInRadius,
-                        currentSyncTime
-                );
-            }
-            return new TrafficMetricsOverviewResponse(0L, 0L, actualCamerasInRadius, currentSyncTime);
+            return new TrafficMetricsOverviewResponse(
+                    totalIncidentsInRadius,
+                    0L,
+                    actualCamerasInRadius,
+                    currentSyncTime
+            );
         }
 
         // Người dùng xem toàn thành phố
@@ -99,8 +98,20 @@ public class TrafficAnalyticsServiceImpl implements TrafficAnalyticsService {
         LocalDateTime end = filter.getEndDate() != null ? filter.getEndDate() : LocalDateTime.now();
 
         if (filter.getLat() != null && filter.getLng() != null) {
-            return baoCaoSuCoRepository.getTrendWithinRadius(filter.getLat(), filter.getLng(), filter.getRadius(), start, end);
+            // Đọc danh sách mảng Object[] từ Native Query
+            List<Object[]> rawData = baoCaoSuCoRepository.getTrendWithinRadiusNative(
+                    filter.getLat(), filter.getLng(), filter.getRadius(), start, end
+            );
+
+            if (rawData == null) return new ArrayList<>();
+
+            // Truyền trực tiếp các phần tử của mảng thô vào, Constructor của DTO mới tự lo ép kiểu
+            return rawData.stream()
+                    .map(row -> new TrafficTimeStatsResponse(row[0], row[1]))
+                    .collect(Collectors.toList());
         }
+
+        // Gọi lại JPQL cũ chạy toàn thành phố (Đã hết lỗi gạch chân đỏ nhờ đồng bộ Constructor DTO)
         return baoCaoSuCoRepository.getTrafficStatsByTime(start, end);
     }
 
@@ -110,15 +121,24 @@ public class TrafficAnalyticsServiceImpl implements TrafficAnalyticsService {
         LocalDateTime end = filter.getEndDate() != null ? filter.getEndDate() : LocalDateTime.now();
 
         if (filter.getLat() != null && filter.getLng() != null) {
-            return baoCaoSuCoRepository.getLocationDensityWithinRadius(
+            // Đọc danh sách mảng Object[] từ Native Query mật độ vị trí bán kính
+            List<Object[]> rawData = baoCaoSuCoRepository.getLocationDensityWithinRadiusNative(
                     filter.getLat(),
                     filter.getLng(),
                     filter.getRadius(),
                     start,
                     end
             );
+
+            if (rawData == null) return new ArrayList<>();
+
+            // Truyền trực tiếp các trường, Constructor custom tự động bóc tách an toàn
+            return rawData.stream()
+                    .map(row -> new TrafficLocationStatsResponse(row[0], row[1], row[2]))
+                    .collect(Collectors.toList());
         }
 
+        // Gọi lại JPQL cũ chạy thống kê mật độ vị trí toàn thành phố
         return baoCaoSuCoRepository.getTrafficStatsByLocation(start, end);
     }
 

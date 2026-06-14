@@ -2,7 +2,6 @@ package com.traffic.repository;
 
 import com.traffic.common.ReportStatus;
 import com.traffic.dto.response.TrafficLocationStatsResponse;
-import com.traffic.dto.response.TrafficMetricsOverviewResponse;
 import com.traffic.dto.response.TrafficTimeStatsResponse;
 import com.traffic.entity.BaoCaoSuCo;
 import jakarta.transaction.Transactional;
@@ -57,7 +56,7 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             @Param("endDate") LocalDateTime endDate);
 
     // =========================================================================
-    // 2. BỘ LỌC DANH SÁCH QUẢN LÝ (BẢN SỬA ĐỒNG BỘ KIỂU ENUM CHUẨN HQL)
+    // 2. BỘ LỌC DANH SÁCH QUẢN LÝ
     // =========================================================================
     @Query(value = "SELECT b FROM BaoCaoSuCo b WHERE " +
             "(:loaiSuCoId IS NULL OR b.loaiSuCo.loaiSuCoId = :loaiSuCoId) AND " +
@@ -80,12 +79,13 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             Pageable pageable
     );
 
+    // Lọc danh sách NGHI VẤN đã hết thời gian (để hiển thị tại tab QUÁ HẠN ảo trên UI)
     @Query(value = "SELECT b FROM BaoCaoSuCo b WHERE " +
             "(:loaiSuCoId IS NULL OR b.loaiSuCo.loaiSuCoId = :loaiSuCoId) AND " +
             "(:tenDangNhap IS NULL OR :tenDangNhap = '' OR b.taiKhoan.tenDangNhap LIKE CONCAT('%', :tenDangNhap, '%')) AND " +
             "(:start IS NULL OR b.thoiGianBaoCao BETWEEN :start AND :end) AND " +
             "b.trangThai != com.traffic.common.ReportStatus.DA_XOA AND " +
-            "b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN AND (" + // Trạng thái DB vẫn là NGHI_VAN
+            "b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN AND (" +
             "  ((b.loaiSuCo.loaiSuCoId = 1 OR b.loaiSuCo.loaiSuCoId = 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 30) OR " +
             "  ((b.loaiSuCo.loaiSuCoId = 3 OR b.loaiSuCo.loaiSuCoId = 4) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 60)" +
             ")",
@@ -107,6 +107,7 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             Pageable pageable
     );
 
+    // Đếm tổng số lượng thông báo đang hoạt động (Chờ duyệt và Nghi vấn chưa hết hạn)
     @Query("SELECT COUNT(b) FROM BaoCaoSuCo b WHERE " +
             "b.trangThai != com.traffic.common.ReportStatus.DA_XOA AND " +
             "((b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH AND NOT (" +
@@ -121,7 +122,7 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
     long countPendingReports(@Param("now") LocalDateTime now);
 
     // =========================================================================
-    // 3. CÁC PHƯƠNG THỨC LỌC BÁN KÍNH TRÊN BẢN ĐỒ
+    // 3. CÁC PHƯƠNG THỨC LỌC BÁN KÍNH TRÊN BẢN ĐỒ (CHUYỂN NATIVE QUERY CHẶN ĐỆ QUY HIBERNATE)
     // =========================================================================
     @Query("SELECT b FROM BaoCaoSuCo b WHERE b.trangThai = com.traffic.common.ReportStatus.DA_XAC_MINH")
     List<BaoCaoSuCo> findActiveReportsForMap(
@@ -129,47 +130,48 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             @Param("oneDayAgo") LocalDateTime oneDayAgo
     );
 
-    @Query("SELECT new com.traffic.dto.response.TrafficTimeStatsResponse(" +
-            "FUNCTION('DATE', b.thoiGianBaoCao), CAST(COUNT(DISTINCT b.baoCaoId) AS long)) " +
-            "FROM BaoCaoSuCo b " +
-            "WHERE b.trangThai != com.traffic.common.ReportStatus.DA_XOA " +
-            "AND b.viDo IS NOT NULL AND b.kinhDo IS NOT NULL " +
-            "AND (b.trangThai = com.traffic.common.ReportStatus.DA_XAC_MINH OR b.trangThai = com.traffic.common.ReportStatus.AN_HIEN_THI) " +
-            "AND (6371.0 * 1000.0 * acos(cos(radians(:lat)) * cos(radians(b.viDo)) * cos(radians(b.kinhDo - :lng)) + sin(radians(:lat)) * sin(radians(b.viDo)))) <= :radius " +
-            "AND (:startDate IS NULL OR b.thoiGianBaoCao >= :startDate) " +
-            "AND (:endDate IS NULL OR b.thoiGianBaoCao <= :endDate) " +
-            "GROUP BY FUNCTION('DATE', b.thoiGianBaoCao) " +
-            "ORDER BY FUNCTION('DATE', b.thoiGianBaoCao) ASC")
-    List<TrafficTimeStatsResponse> getTrendWithinRadius(
+    // Lưu ý: Các hàm Native Query dưới đây cần map tên bảng/cột viết thường theo cấu trúc thực tế dưới Database của bạn (ví dụ: bao_cao_su_co, vi_do, kinh_do...)
+    @Query(value = "SELECT DATE(b.thoi_gian_bao_cao) as report_date, COUNT(DISTINCT b.bao_cao_id) as count " +
+            "FROM bao_cao_su_co b " +
+            "WHERE b.trang_thai != 'DA_XOA' " +
+            "AND b.vi_do IS NOT NULL AND b.kinh_do IS NOT NULL " +
+            "AND (b.trang_thai = 'DA_XAC_MINH' OR b.trang_thai = 'AN_HIEN_THI') " +
+            "AND (6371.0 * 1000.0 * acos(cos(radians(:lat)) * cos(radians(b.vi_do)) * cos(radians(b.kinh_do - :lng)) + sin(radians(:lat)) * sin(radians(b.vi_do)))) <= :radius " +
+            "AND (:startDate IS NULL OR b.thoi_gian_bao_cao >= :startDate) " +
+            "AND (:endDate IS NULL OR b.thoi_gian_bao_cao <= :endDate) " +
+            "GROUP BY DATE(b.thoi_gian_bao_cao) " +
+            "ORDER BY report_date ASC", nativeQuery = true)
+    List<Object[]> getTrendWithinRadiusNative(
             @Param("lat") Double lat,
             @Param("lng") Double lng,
             @Param("radius") Double radius,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
-    @Query("SELECT new com.traffic.dto.response.TrafficLocationStatsResponse(b.loaiSuCo.tenLoai, CAST(COUNT(DISTINCT b.baoCaoId) AS long), CAST(COUNT(DISTINCT b.baoCaoId) AS long)) " +
-            "FROM BaoCaoSuCo b " +
-            "WHERE b.trangThai != com.traffic.common.ReportStatus.DA_XOA " +
-            "AND b.viDo IS NOT NULL AND b.kinhDo IS NOT NULL " +
-            "AND (b.trangThai = com.traffic.common.ReportStatus.DA_XAC_MINH OR b.trangThai = com.traffic.common.ReportStatus.AN_HIEN_THI) " +
-            "AND (6371.0 * 1000.0 * acos(cos(radians(:lat)) * cos(radians(b.viDo)) * cos(radians(b.kinhDo - :lng)) + sin(radians(:lat)) * sin(radians(b.viDo)))) <= :radius " +
-            "AND b.thoiGianBaoCao BETWEEN :startDate AND :endDate " +
-            "GROUP BY b.loaiSuCo.tenLoai")
-    List<TrafficLocationStatsResponse> getLocationDensityWithinRadius(
+    @Query(value = "SELECT l.ten_loai, COUNT(DISTINCT b.bao_cao_id) as cnt1, COUNT(DISTINCT b.bao_cao_id) as cnt2 " +
+            "FROM bao_cao_su_co b " +
+            "INNER JOIN loai_su_co l ON b.loai_su_co_id = l.loai_su_co_id " +
+            "WHERE b.trang_thai != 'DA_XOA' " +
+            "AND b.vi_do IS NOT NULL AND b.kinh_do IS NOT NULL " +
+            "AND (b.trang_thai = 'DA_XAC_MINH' OR b.trang_thai = 'AN_HIEN_THI') " +
+            "AND (6371.0 * 1000.0 * acos(cos(radians(:lat)) * cos(radians(b.vi_do)) * cos(radians(b.kinh_do - :lng)) + sin(radians(:lat)) * sin(radians(b.vi_do)))) <= :radius " +
+            "AND b.thoi_gian_bao_cao BETWEEN :startDate AND :endDate " +
+            "GROUP BY l.ten_loai", nativeQuery = true)
+    List<Object[]> getLocationDensityWithinRadiusNative(
             @Param("lat") Double lat,
             @Param("lng") Double lng,
             @Param("radius") Double radius,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
-    @Query("SELECT new com.traffic.dto.response.TrafficMetricsOverviewResponse(CAST(COUNT(DISTINCT b.baoCaoId) AS long), 0L, 0.0, 0L) " +
-            "FROM BaoCaoSuCo b " +
-            "WHERE b.trangThai != com.traffic.common.ReportStatus.DA_XOA " +
-            "AND b.viDo IS NOT NULL AND b.kinhDo IS NOT NULL " +
-            "AND (b.trangThai = com.traffic.common.ReportStatus.DA_XAC_MINH OR b.trangThai = com.traffic.common.ReportStatus.AN_HIEN_THI) " +
-            "AND (6371.0 * 1000.0 * acos(cos(radians(:lat)) * cos(radians(b.viDo)) * cos(radians(b.kinhDo - :lng)) + sin(radians(:lat)) * sin(radians(b.viDo)))) <= :radius " +
-            "AND b.thoiGianBaoCao BETWEEN :startDate AND :endDate")
-    TrafficMetricsOverviewResponse getOverviewWithinRadius(
+    @Query(value = "SELECT COUNT(DISTINCT b.bao_cao_id) " +
+            "FROM bao_cao_su_co b " +
+            "WHERE b.trang_thai != 'DA_XOA' " +
+            "AND b.vi_do IS NOT NULL AND b.kinh_do IS NOT NULL " +
+            "AND (b.trang_thai = 'DA_XAC_MINH' OR b.trang_thai = 'AN_HIEN_THI') " +
+            "AND (6371.0 * 1000.0 * acos(cos(radians(:lat)) * cos(radians(b.vi_do)) * cos(radians(b.kinh_do - :lng)) + sin(radians(:lat)) * sin(radians(b.vi_do)))) <= :radius " +
+            "AND b.thoi_gian_bao_cao BETWEEN :startDate AND :endDate", nativeQuery = true)
+    long getOverviewWithinRadiusNative(
             @Param("lat") Double lat,
             @Param("lng") Double lng,
             @Param("radius") Double radius,
@@ -181,6 +183,7 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
     @Query("UPDATE BaoCaoSuCo b SET b.trangThai = com.traffic.common.ReportStatus.DA_XOA WHERE b.baoCaoId = :id")
     void deleteReportSoft(@Param("id") Long id);
 
+    // Được gọi định kỳ bởi Scheduler để lấy riêng CHO_XAC_MINH đi tự động duyệt
     @Query("SELECT b FROM BaoCaoSuCo b WHERE " +
             "b.trangThai = com.traffic.common.ReportStatus.CHO_XAC_MINH AND (" +
             "  ((b.loaiSuCo.loaiSuCoId = 1 OR b.loaiSuCo.loaiSuCoId = 2) AND FUNCTION('TIMESTAMPDIFF', MINUTE, b.thoiGianBaoCao, :now) > 30) OR " +
@@ -188,10 +191,10 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             ")")
     List<BaoCaoSuCo> findPendingReportsOverdue(@Param("now") LocalDateTime now);
 
-    @Query("SELECT b FROM BaoCaoSuCo b WHERE " +
-            "b.loaiSuCo.loaiSuCoId = :loaiId AND " +
-            "b.trangThai = com.traffic.common.ReportStatus.DA_XAC_MINH AND " +
-            "(6371000.0 * acos(cos(radians(:lat)) * cos(radians(b.viDo)) * cos(radians(b.kinhDo - :lng)) + sin(radians(:lat)) * sin(radians(b.viDo)))) <= :radius")
+    @Query(value = "SELECT * FROM bao_cao_su_co b WHERE " +
+            "b.loai_su_co_id = :loaiId AND " +
+            "b.trang_thai = 'DA_XAC_MINH' AND " +
+            "(6371000.0 * acos(cos(radians(:lat)) * cos(radians(b.vi_do)) * cos(radians(b.kinh_do - :lng)) + sin(radians(:lat)) * sin(radians(b.vi_do)))) <= :radius", nativeQuery = true)
     List<BaoCaoSuCo> findActiveNearby(
             @Param("loaiId") Object loaiId,
             @Param("lat") Double lat,
