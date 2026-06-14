@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bell, User, ChevronDown, LogOut, AlertCircle, Info, Check, Trash2, Menu, X } from 'lucide-react';
 import api from '../../../api/axiosConfig';
 import Profile from '../../profile/Profile';
+import { formatTimeWithTimezone } from '../../../utils/timeFormatter';
 import './Header.css';
 
 const Header = ({ activeTab, user, onLogout, onUserUpdate, onMenuToggle, menuOpen }) => {
@@ -139,9 +140,7 @@ const Header = ({ activeTab, user, onLogout, onUserUpdate, onMenuToggle, menuOpe
   };
 
   const formatTime = (timeStr) => {
-    if (!timeStr) return '';
-    const date = new Date(timeStr);
-    return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' - ' + date.toLocaleDateString('vi-VN');
+    return formatTimeWithTimezone(timeStr);
   };
 
   return (

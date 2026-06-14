@@ -7,6 +7,7 @@ import ReactDOM from 'react-dom';
 import { Navigation, Search, CheckCircle, Trash2, AlertTriangle, XCircle, MapPin, EyeOff, Image } from 'lucide-react';
 import ReportForm from '../../user/ReportForm/ReportForm';
 import api from '../../../api/axiosConfig';
+import { formatTimeWithTimezone } from '../../../utils/timeFormatter';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -110,7 +111,7 @@ const IncidentPopupContent = ({ data, userRole, fetchAddress, handleAdminAction 
             )}
             <p><strong>Mô tả:</strong> {data.moTa || "Không có mô tả"}</p>
             <p><strong>Vị trí:</strong> {address}</p>
-            <p><strong>Thời gian:</strong> {data.thoiGianBaoCao ? new Date(data.thoiGianBaoCao).toLocaleString('vi-VN') : "Vừa xong"}</p>
+            <p><strong>Thời gian:</strong> {data.thoiGianBaoCao ? formatTimeWithTimezone(data.thoiGianBaoCao) : "Vừa xong"}</p>
 
             {imageUrl && (
               <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
