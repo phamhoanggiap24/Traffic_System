@@ -23,18 +23,18 @@ api.interceptors.response.use(
   },
   (error) => {
     if (error.response && (error.response.status === 403 || error.response.status === 401)) {
-      console.warn("Phát hiện tài khoản bị khóa hoặc phiên làm việc hết hạn!");
+      console.warn("Xác thực thất bại! Mã lỗi:", error.response.status);
 
-      // 1. Xóa sạch dấu vết đăng nhập cũ trên bộ nhớ
+      // 🌟 QUAN TRỌNG NHẤT: Xóa sạch 100% LocalStorage để không bị kẹt user/token cũ gây lặp popup
       localStorage.clear();
 
-      // 2. PHÁT TÍN HIỆU TOÀN HỆ THỐNG: Báo cho App.js biết để reset trạng thái giao diện
+      // Bắn sự kiện ép App.js chuyển state user về null ngay lập tức
       window.dispatchEvent(new Event('force-logout'));
 
-      // 3. Thông báo cho người dùng
-      alert("Tài khoản của bạn đã bị khóa hoặc phiên đăng nhập hết hạn. Hệ thống tự động đăng xuất!");
+      // Hiện thông báo duy nhất một lần
+      alert("Phiên đăng nhập đã hết hạn hoặc tài khoản bị thay đổi. Vui lòng đăng nhập lại!");
 
-      // 4. Đẩy về trang đăng nhập
+      // Điều hướng an toàn về trang login
       window.location.href = '/login';
     }
     return Promise.reject(error);
