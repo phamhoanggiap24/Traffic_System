@@ -21,7 +21,7 @@ public class EmailServiceImpl implements EmailService {
     @Autowired
     private TrafficService trafficService;
 
-    @Value("${MAIL_USERNAME}")
+    @Value("${spring.mail.username}")
     private String emailSender;
 
     @Value("${APP_BASE_URL:http://localhost:8080}") // Tự động nhận diện URL hệ thống khi deploy
@@ -173,7 +173,8 @@ public class EmailServiceImpl implements EmailService {
             mailSender.send(message);
             System.out.println("[EmailService] ĐÃ GỬI MAIL OTP THÀNH CÔNG TỚI: " + toEmail);
         } catch (Exception e) {
-            System.err.println("[EmailService] Lỗi gửi email OTP mật khẩu: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Gửi email thất bại: " + e.getMessage());
         }
     }
 }

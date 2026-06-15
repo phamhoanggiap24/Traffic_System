@@ -134,21 +134,34 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public ApiResponse<ResetPasswordResponse> forgotPassword(String email) {
-        TaiKhoan tk = taiKhoanRepository.findByEmail(email).orElse(null);
-        if (tk == null) return ApiResponse.error(404, AuthMessage.EMAIL_NOT_FOUND.getMessage());
+        Optional<TaiKhoan> taiKhoanOpt = taiKhoanRepository.findByEmail(email);
 
-        String otp = String.valueOf((int)((Math.random() * 899999) + 100000));
+        if (taiKhoanOpt.isEmpty()) {
+            return ApiResponse.error(404, "Email không tồn tại trong hệ thống!");
+        }
+
+        TaiKhoan tk = taiKhoanOpt.get();
+
+        String otp = String.valueOf((int) ((Math.random() * 899999) + 100000));
+
         QuenMatKhau qmk = new QuenMatKhau();
         qmk.setEmail(email);
         qmk.setOtpCode(otp);
         qmk.setThoiGianHetHan(LocalDateTime.now().plusMinutes(5));
         qmk.setDaSuDung(false);
         qmk.setTaiKhoan(tk);
+
         quenMatKhauRepository.save(qmk);
 
-        emailService.sendOtpPasswordEmail(email, otp); // Gửi OTP bất đồng bộ
-        return ApiResponse.success(AuthMessage.OTP_SENT.getMessage(),
-                ResetPasswordResponse.builder().email(email).thoiGianHetHan(qmk.getThoiGianHetHan()).build());
+        emailService.sendOtpPasswordEmail(email, otp);
+
+        return ApiResponse.success(
+                "Mã OTP đã được gửi đến email của bạn!",
+                ResetPasswordResponse.builder()
+                        .email(email)
+                        .thoiGianHetHan(qmk.getThoiGianHetHan())
+                        .build()
+        );
     }
 
     @Override
