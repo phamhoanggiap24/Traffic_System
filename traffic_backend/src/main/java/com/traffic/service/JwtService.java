@@ -29,7 +29,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Component
 public class JwtService extends OncePerRequestFilter {
@@ -47,19 +46,7 @@ public class JwtService extends OncePerRequestFilter {
     private TaiKhoanRepository taiKhoanRepository;
 
     public String generateToken(TaiKhoan taiKhoan) {
-        Map<String, Object> extraClaims = new HashMap<>();
-        try {
-            if (taiKhoan.getDanhSachPhanQuyen() != null) {
-                List<String> roles = taiKhoan.getDanhSachPhanQuyen().stream()
-                        .filter(pq -> pq.getVaiTro() != null)
-                        .map(pq -> pq.getVaiTro().getTenVaiTro())
-                        .collect(Collectors.toList());
-                extraClaims.put("roles", roles);
-            }
-        } catch (Exception e) {
-            // Tránh Lazy Loading lỗi lúc đăng ký
-        }
-        return buildToken(extraClaims, taiKhoan, jwtExpiration);
+        return buildToken(new HashMap<>(), taiKhoan, jwtExpiration);
     }
 
     public String generateRefreshToken(TaiKhoan taiKhoan) {
@@ -85,12 +72,6 @@ public class JwtService extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
-        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
-            response.setStatus(HttpServletResponse.SC_OK);
-            filterChain.doFilter(request, response);
-            return;
-        }
-
         final String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
@@ -101,20 +82,20 @@ public class JwtService extends OncePerRequestFilter {
         String username = extractUsername(jwt);
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            // Sử dụng hàm JOIN FETCH bạn đã viết rất chuẩn ở Repo
+            // SỬ DỤNG HÀM FETCH JOIN MẠNH NHẤT TỪ REPO CỦA BẠN ĐỂ LẤY FULL QUYỀN TỪ DB
             Optional<TaiKhoan> taiKhoanOpt = taiKhoanRepository.findProfileByTenDangNhap(username);
 
             if (taiKhoanOpt.isPresent()) {
                 TaiKhoan tk = taiKhoanOpt.get();
 
-                // 1. Kiểm tra tài khoản đặc quyền admin tối cao
+                // 1. Kiểm tra quyền Admin (Nếu tên đăng nhập là "admin" thì auto là Admin tối cao)
                 boolean isAdmin = "admin".equalsIgnoreCase(tk.getTenDangNhap()) ||
                         (tk.getDanhSachPhanQuyen() != null && tk.getDanhSachPhanQuyen().stream()
                                 .anyMatch(pq -> pq.getVaiTro() != null &&
                                         (RoleConstant.ROLE_ADMIN.equalsIgnoreCase(pq.getVaiTro().getTenVaiTro()) ||
                                                 "ADMIN".equalsIgnoreCase(pq.getVaiTro().getTenVaiTro()))));
 
-                // 2. Kiểm tra trạng thái khóa (Bỏ qua điều kiện chặn nếu là Admin)
+                // 2. Kiểm tra trạng thái khóa (Nếu là admin thì bỏ qua không chặn)
                 if (!isAdmin) {
                     boolean isLocked = UserStatus.LOCKED.equals(tk.getTrangThai()) ||
                             (tk.getDoTinCayNguoiDung() != null && tk.getDoTinCayNguoiDung() < 5);
@@ -126,32 +107,32 @@ public class JwtService extends OncePerRequestFilter {
                     }
                 }
 
-                // 3. Cơ chế tạo danh sách quyền bất tử - Nạp mọi định dạng để không bao giờ bị lệch config
+                // 3. ÉP CỨNG QUYỀN VÀO CONTEXT (BẤT CHẤP TOKEN CŨ HAY MỚI)
                 List<SimpleGrantedAuthority> authorities = new ArrayList<>();
 
                 if (tk.getDanhSachPhanQuyen() != null) {
                     for (var pq : tk.getDanhSachPhanQuyen()) {
                         if (pq.getVaiTro() != null && pq.getVaiTro().getTenVaiTro() != null) {
-                            String role = pq.getVaiTro().getTenVaiTro().trim().toUpperCase();
+                            String rawRole = pq.getVaiTro().getTenVaiTro().trim();
 
-                            // Nạp chuỗi gốc từ DB
-                            authorities.add(new SimpleGrantedAuthority(role));
-                            authorities.add(new SimpleGrantedAuthority(pq.getVaiTro().getTenVaiTro().trim()));
+                            // Thêm quyền dạng thô từ DB (ví dụ: ROLE_ADMIN hoặc ADMIN)
+                            authorities.add(new SimpleGrantedAuthority(rawRole));
 
-                            // Nếu DB không chứa tiền tố ROLE_, sinh thêm một bản quyền dạng ROLE_ để đáp ứng SecurityConfig
-                            if (!role.startsWith("ROLE_")) {
-                                authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
+                            // Nếu DB chưa có tiền tố ROLE_, nạp thêm một bản có chữ ROLE_ cho khớp với Config
+                            if (!rawRole.toUpperCase().startsWith("ROLE_")) {
+                                authorities.add(new SimpleGrantedAuthority("ROLE_" + rawRole.toUpperCase()));
                             }
                         }
                     }
                 }
 
-                // Nếu xác định tài khoản là Admin, ép chết cả hai dạng quyền Admin cao nhất vào hệ thống
+                // Nếu là tài khoản admin, ép thêm chắc chắn hai quyền cao nhất
                 if (isAdmin) {
                     authorities.add(new SimpleGrantedAuthority("ADMIN"));
                     authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
                 }
 
+                // Nếu danh sách trống, mặc định gán quyền USER cơ bản
                 if (authorities.isEmpty()) {
                     authorities.add(new SimpleGrantedAuthority("USER"));
                     authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
