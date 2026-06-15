@@ -21,8 +21,14 @@ public class ProfileController {
     // 🚀 1. BỔ SUNG ĐƯỜNG DẪN: Lấy thông tin cá nhân Real-time phục vụ React hiển thị điểm uy tín
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<TaiKhoan>> getMyProfile() {
-        // Tự động bốc username từ Token an toàn trong bộ nhớ Spring Security
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()
+                || "anonymousUser".equals(authentication.getName())) {
+            return ResponseEntity.status(401)
+                    .body(new ApiResponse<>(401, "Chưa đăng nhập hoặc token không hợp lệ", null));
+        }
+
         String currentUsername = authentication.getName();
 
         ApiResponse<TaiKhoan> response = profileService.getProfileInfo(currentUsername);
