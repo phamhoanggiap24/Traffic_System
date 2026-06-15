@@ -52,7 +52,7 @@ public class AuthServiceImpl implements AuthService {
     @Autowired
     private QuenMatKhauRepository quenMatKhauRepository;
 
-    @Value("${spring.mail.username:${MAIL_USERNAME:your-email@gmail.com}}")
+    @Value("${spring.mail.username}")
     private String emailSender;
 
     @Autowired

@@ -79,6 +79,60 @@ const formatVietnameseDateTime = (dateTimeString) => {
   }
 };
 
+// ==================== CÁC HÀM TRỢ GIÚP LỌC BÁN KÍNH 50M (MỚI THÊM) ====================
+
+// Hàm tính khoảng cách mét giữa 2 điểm GPS (Công thức Haversine)
+const getDistanceInMeters = (lat1, lon1, lat2, lon2) => {
+  const R = 6371000; // Bán kính Trái Đất tính bằng mét
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+// Hàm lọc gộp trùng: Tách lọc theo từng loại sự cố, trong bán kính 50m chỉ giữ lại tin mới nhất để làm mới thời gian
+const filterDuplicateIncidentsByRadius = (rawIncidents) => {
+  if (!rawIncidents || rawIncidents.length === 0) return [];
+
+  // Sắp xếp mảng thô từ MỚI NHẤT xuống CŨ NHẤT dựa trên thoiGianBaoCao
+  const sortedIncidents = [...rawIncidents].sort((a, b) => {
+    return new Date(b.thoiGianBaoCao).getTime() - new Date(a.thoiGianBaoCao).getTime();
+  });
+
+  const uniqueIncidents = [];
+
+  sortedIncidents.forEach((currentIncident) => {
+    // Kiểm tra xem trong danh sách "đã được duyệt giữ lại hiển thị" có điểm nào bị trùng lặp không
+    const isDuplicate = uniqueIncidents.some((savedIncident) => {
+      // ĐIỀU KIỆN 1: Phải TRÙNG LOẠI SỰ CỐ (loaiSuCoId) thì mới xét gộp. Khác loại cho hiện song song bình thường.
+      const isSameType = savedIncident.loaiSuCoId === currentIncident.loaiSuCoId;
+
+      if (isSameType) {
+        // ĐIỀU KIỆN 2: Tính khoảng cách hình học thực tế xem có thuộc bán kính dưới 50m không
+        const dist = getDistanceInMeters(
+          savedIncident.viDo, savedIncident.kinhDo,
+          currentIncident.viDo, currentIncident.kinhDo
+        );
+        return dist <= 50; // Khoảng cách <= 50m đánh dấu trùng lặp
+      }
+      return false;
+    });
+
+    // Do danh sách chạy từ mới nhất xuống cũ nhất, phần tử quét đầu tiên luôn là MỚI NHẤT tại khu vực bán kính đó.
+    // Nếu chưa bị chiếm vị trí bởi sự cố mới nào cùng loại trước đó -> Tiến hành lưu lại để vẽ Marker.
+    if (!isDuplicate) {
+      uniqueIncidents.push(currentIncident);
+    }
+  });
+
+  return uniqueIncidents;
+};
+
+// =====================================================================================
+
 const IncidentPopupContent = ({ data, userRole, fetchAddress, handleAdminAction }) => {
   const [address, setAddress] = useState("Đang xác định vị trí...");
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -702,7 +756,8 @@ const TrafficMap = () => {
           </Marker>
         )}
 
-        {incidents
+        {/* ĐÃ CẬP NHẬT: Nhúng hàm filterDuplicateIncidentsByRadius làm bộ lọc lớp đầu tiên trước khi duyệt map */}
+        {filterDuplicateIncidentsByRadius(incidents)
           .filter(i => {
             if (['SAI_SU_THAT', 'AN_HIEN_THI', 'DA_XOA', 'QUA_HAN'].includes(i.trangThai)) return false;
 
@@ -737,7 +792,7 @@ const TrafficMap = () => {
                   {incident.tenLoaiSuCo}
                 </Tooltip>
 
-                {/* THAY ĐỔI CHÍNH TẠI ĐÂY: Thêm key kết hợp ID và TrangThai phản hồi để ép Leaflet vẽ lại ruột popup khi Admin duyệt ngầm */}
+                {/* Khóa key kết hợp ID và TrangThai phản hồi để ép Leaflet vẽ lại ruột popup khi Admin duyệt hoặc làm mới thời gian */}
                 <Popup minWidth={250} key={`${incident.baoCaoId}-${incident.trangThai}`}>
                   <IncidentPopupContent
                     data={incident}
@@ -757,7 +812,6 @@ const TrafficMap = () => {
             zIndexOffset={1000}
             eventHandlers={{ add: (e) => e.target.openPopup() }}
           >
-            {/* Thêm khóa key phá cache tương tự cho chế độ xem tiêu điểm Focus */}
             <Popup minWidth={250} key={`${focusIncident.baoCaoId}-${focusIncident.trangThai}`}>
               <IncidentPopupContent
                 data={focusIncident}

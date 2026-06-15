@@ -18,10 +18,7 @@ import java.util.List;
 
 @Repository
 public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
-
-    // =========================================================================
-    // 1. CÁC HÀM THỐNG KÊ TOÀN HỆ THỐNG
-    // =========================================================================
+    // CÁC HÀM THỐNG KÊ TOÀN HỆ THỐNG
     @Query("SELECT COUNT(b) FROM BaoCaoSuCo b WHERE b.trangThai = com.traffic.common.ReportStatus.DA_XAC_MINH OR b.trangThai = com.traffic.common.ReportStatus.AN_HIEN_THI")
     long countAllVerifiedReports();
 
@@ -55,9 +52,7 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
-    // =========================================================================
-    // 2. BỘ LỌC DANH SÁCH QUẢN LÝ
-    // =========================================================================
+    // BỘ LỌC DANH SÁCH QUẢN LÝ
     @Query(value = "SELECT b FROM BaoCaoSuCo b WHERE " +
             "(:loaiSuCoId IS NULL OR b.loaiSuCo.loaiSuCoId = :loaiSuCoId) AND " +
             "(:tenDangNhap IS NULL OR :tenDangNhap = '' OR b.taiKhoan.tenDangNhap LIKE CONCAT('%', :tenDangNhap, '%')) AND " +
@@ -116,7 +111,7 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             Pageable pageable
     );
 
-    // NGHI VẤN CHƯA QUÁ HẠN (Thời gian báo cáo LỚN HƠN HOẶC BẰNG mốc giới hạn)
+    // NGHI VẤN CHƯA QUÁ HẠN
     @Query(value = "SELECT COUNT(*) FROM bao_cao_su_co b WHERE b.trang_thai != 'DA_XOA' AND (" +
             "  (b.trang_thai = 'CHO_XAC_MINH' AND NOT (" +
             "    (b.loai_su_co_id IN (1, 2) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) > 30) OR " +
@@ -129,9 +124,7 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             ")", nativeQuery = true)
     long countPendingReports(@Param("now") LocalDateTime now);
 
-    // =========================================================================
-    // 3. CÁC PHƯƠNG THỨC LỌC BÁN KÍNH TRÊN BẢN ĐỒ
-    // =========================================================================
+    // CÁC PHƯƠNG THỨC LỌC BÁN KÍNH TRÊN BẢN ĐỒ
     @Query("SELECT b FROM BaoCaoSuCo b WHERE b.trangThai = com.traffic.common.ReportStatus.DA_XAC_MINH")
     List<BaoCaoSuCo> findActiveReportsForMap(
             @Param("threeHoursAgo") LocalDateTime threeHoursAgo,

@@ -21,14 +21,22 @@ public class EmailServiceImpl implements EmailService {
     @Autowired
     private TrafficService trafficService;
 
-    @Value("${spring.mail.username:${MAIL_USERNAME:your-email@gmail.com}}")
+    @Value("${spring.mail.username}")
     private String emailSender;
 
     @Override
     @Async
     public void sendTrafficIncidentAlert(String toEmail, ReportResponse report, String tenDuong) {
         System.out.println("[ASYNC-MAIL] >>> Nhận tác vụ gửi mail ngầm thành công!");
-        System.out.println("[ASYNC-MAIL] Địa chỉ nhận được từ luồng chính: " + tenDuong);
+        System.out.println("[ASYNC-MAIL] Email gửi đi (From): " + emailSender);
+        System.out.println("[ASYNC-MAIL] Email nhận (To): " + toEmail);
+        System.out.println("[ASYNC-MAIL] Vị trí sự cố: " + tenDuong);
+
+        // Kiểm tra xem email nhận có hợp lệ không (tránh gửi vào email rác hoặc chuỗi trống)
+        if (toEmail == null || toEmail.trim().isEmpty() || toEmail.contains("your-email")) {
+            System.err.println("[ASYNC-MAIL] Địa chỉ email nhận không hợp lệ! Hủy tác vụ gửi.");
+            return;
+        }
 
         try {
             MimeMessage message = mailSender.createMimeMessage();
@@ -78,10 +86,11 @@ public class EmailServiceImpl implements EmailService {
 
             helper.setText(htmlContent, true);
             mailSender.send(message);
-            System.out.println("[EmailService] Đã gửi mail cảnh báo kèm link điều hướng đồ án tới: " + toEmail);
+            System.out.println("[EmailService] ĐÃ GỬI MAIL THÀNH CÔNG TỚI: " + toEmail);
 
         } catch (Exception e) {
-            System.err.println("[EmailService] Lỗi nghiêm trọng khi gửi mail: " + e.getMessage());
+            System.err.println("[EmailService] Lỗi nghiêm trọng khi thực hiện gửi mail: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }
