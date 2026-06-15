@@ -183,6 +183,7 @@ const TrafficMap = () => {
   const [routesData, setRoutesData] = useState([]);
   const [activeRouteIndex, setActiveRouteIndex] = useState(0);
   const [, setTimeUpdate] = useState(0);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
 
   const [activeInput,setActiveInput] = useState('start');
   const activeInputRef = useRef('start');
@@ -210,7 +211,7 @@ const TrafficMap = () => {
   // CHUYỂN THÀNH CALLBACK ĐỂ TRÁNH TRÙNG LẶP ĐỊNH NGHĨA KHI RE-RUN TIMEOUT
   const fetchIncidents = useCallback(async () => {
     try {
-      const res = await api.get('/report/public/markers');
+      const res = await api.get(`/report/public/markers?_t=${new Date().getTime()}`);
       if (res.data?.data) setIncidents(res.data.data);
     } catch (err) { console.error("Lỗi tải markers:", err); }
   }, []);
@@ -498,9 +499,17 @@ const TrafficMap = () => {
         setSelectedPoint({ lat: wrapped.lat, lng: wrapped.lng, address: addr });
       },
       locationfound: async (e) => {
-        try {
-          const wrapped = e.latlng.wrap();
+        const wrapped = e.latlng.wrap();
 
+        // NẾU LÀ LẦN ĐẦU MỞ APP: Chỉ chuyển tâm bản đồ về vị trí hiện tại, giữ nguyên mức zoom hiện tại
+        if (isFirstLoad) {
+          mapRef.current.panTo(wrapped); // Hoặc mapRef.current.flyTo(wrapped, mapRef.current.getZoom());
+          setIsFirstLoad(false); // Tắt cờ lần đầu tải trang đi
+          return; // Thoát hàm, không chạy logic tạo popup bên dưới
+        }
+
+        // LÔGIC KHI NGƯỜI DÙNG CHỦ ĐỘNG BẤM NÚT NAVIGATION (Vẫn giữ nguyên như cũ của bạn)
+        try {
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${wrapped.lat}&lon=${wrapped.lng}&format=json&accept-language=vi`
           );
