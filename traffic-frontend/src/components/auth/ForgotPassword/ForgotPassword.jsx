@@ -1,4 +1,4 @@
-import React, { useState, useEffect,useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './ForgotPassword.css';
 import api from '../../../api/axiosConfig';
 
@@ -39,13 +39,20 @@ const ForgotPassword = ({ goToLogin }) => {
     return () => clearInterval(interval);
   }, [step]);
 
-  // Hàm handleStep1 cần sửa để reset mốc thời gian
+  const formatTime = (seconds) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  // Gửi Email
   const handleStep1 = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
       await api.post('/auth/forgot-password', { email });
-      expiryTimeRef.current = null; // Reset để set lại mốc mới ở useEffect
+      expiryTimeRef.current = null; // Reset để set lại mốc mới ở step 2
+      setTimeLeft(300);
       setStep(2);
     } catch (err) {
       alert(err.response?.data?.message || "Email không tồn tại!");
@@ -55,7 +62,7 @@ const ForgotPassword = ({ goToLogin }) => {
   // Xác nhận OTP
   const handleStep2 = (e) => {
     e.preventDefault();
-    if (timer === 0) {
+    if (timeLeft === 0) {
       alert("Mã OTP đã hết hạn, vui lòng gửi lại!");
       return;
     }
@@ -107,7 +114,7 @@ const ForgotPassword = ({ goToLogin }) => {
               <label>Mã OTP</label>
               <input type="text" required value={otp} onChange={e => setOtp(e.target.value)} placeholder="Nhập 6 số" />
               <p className="timer-text">
-                Mã hết hạn sau: <span style={{color: timer < 60 ? 'red' : '#2563eb'}}>{formatTime(timer)}</span>
+                Mã hết hạn sau: <span style={{color: timeLeft < 60 ? 'red' : '#2563eb'}}>{formatTime(timeLeft)}</span>
               </p>
             </div>
             <button type="submit" className="auth-btn">Xác nhận mã</button>
