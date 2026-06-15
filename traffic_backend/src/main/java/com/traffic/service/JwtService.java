@@ -28,7 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-@Component // Dùng @Component để Spring Security cấu hình chuỗi Filter an toàn
+@Component
 public class JwtService extends OncePerRequestFilter {
 
     @Value("${jwt.secret}")
@@ -43,10 +43,7 @@ public class JwtService extends OncePerRequestFilter {
     @Autowired
     private TaiKhoanRepository taiKhoanRepository;
 
-    // =========================================================================
-    // NHÓM 1: CÁC HÀM TIỆN ÍCH DÙNG CHO ĐĂNG NHẬP (AuthServiceImpl gọi sang)
-    // =========================================================================
-
+    // CÁC HÀM TIỆN ÍCH DÙNG CHO ĐĂNG NHẬP (AuthServiceImpl gọi sang)
     public String generateToken(TaiKhoan taiKhoan) {
         return buildToken(new HashMap<>(), taiKhoan, jwtExpiration);
     }
@@ -70,10 +67,7 @@ public class JwtService extends OncePerRequestFilter {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    // =========================================================================
-    // NHÓM 2: BỘ LỌC CHẶN REQUEST THỜI GIAN THỰC (Bảo mật Spring Security)
-    // =========================================================================
-
+    // BỘ LỌC CHẶN REQUEST THỜI GIAN THỰC (Bảo mật Spring Security)
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
@@ -115,7 +109,7 @@ public class JwtService extends OncePerRequestFilter {
                         .collect(Collectors.toList());
                 boolean isAdmin = roles.contains("ROLE_ADMIN");
 
-                // ------------ LOGIC ĐẨY TÀI KHOẢN KHI ADMIN KHÓA ------------
+                //  LOGIC ĐẨY TÀI KHOẢN KHI ADMIN KHÓA
                 boolean isLockedByStatus = UserStatus.LOCKED.equals(tk.getTrangThai()) || "LOCKED".equals(String.valueOf(tk.getTrangThai()));
                 boolean isLockedByPoint = (tk.getDoTinCayNguoiDung() != null && tk.getDoTinCayNguoiDung() < 5);
 
@@ -126,7 +120,6 @@ public class JwtService extends OncePerRequestFilter {
                     response.getWriter().write("{\"status\": 403, \"message\": \"Tài khoản của bạn đã bị khóa!\"}");
                     return;
                 }
-                // -------------------------------------------------------------
 
                 // Kiểm tra thời hạn Token
                 boolean isExpired = false;
@@ -156,5 +149,33 @@ public class JwtService extends OncePerRequestFilter {
             }
         }
         filterChain.doFilter(request, response);
+    }
+
+    // REFRESH TOKEN TRONG AUTH_SERVICE
+    public String extractUsername(String token) {
+        try {
+            return Jwts.parserBuilder()
+                    .setSigningKey(getSignInKey())
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody()
+                    .getSubject();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public boolean isTokenExpired(String token) {
+        try {
+            Date expiration = Jwts.parserBuilder()
+                    .setSigningKey(getSignInKey())
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody()
+                    .getExpiration();
+            return expiration.before(new Date());
+        } catch (Exception e) {
+            return true;
+        }
     }
 }
