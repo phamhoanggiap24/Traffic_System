@@ -5,6 +5,8 @@ import com.traffic.entity.TaiKhoan;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -24,4 +26,7 @@ public interface TaiKhoanRepository extends JpaRepository<TaiKhoan, Long> {
     Page<TaiKhoan> findByTrangThaiNot(UserStatus status, Pageable pageable);
 
     Page<TaiKhoan> findByTenDangNhapContainingIgnoreCaseAndTrangThaiNot(String tenDangNhap, UserStatus status, Pageable pageable);
+
+    @Query("SELECT tk FROM TaiKhoan tk LEFT JOIN FETCH tk.danhSachPhanQuyen WHERE tk.tenDangNhap = :username")
+    Optional<TaiKhoan> findProfileByTenDangNhap(@Param("username") String username);
 }

@@ -44,7 +44,6 @@ public class JwtService extends OncePerRequestFilter {
     @Autowired
     private TaiKhoanRepository taiKhoanRepository;
 
-    // CÁC HÀM TIỆN ÍCH DÙNG CHO ĐĂNG NHẬP
     public String generateToken(TaiKhoan taiKhoan) {
         return buildToken(new HashMap<>(), taiKhoan, jwtExpiration);
     }
@@ -68,22 +67,18 @@ public class JwtService extends OncePerRequestFilter {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    // BỘ LỌC CHẶN REQUEST THỜI GIAN THỰC
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
         final String authHeader = request.getHeader("Authorization");
-        final String jwt;
-        final String username;
-
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        jwt = authHeader.substring(7);
-
+        final String jwt = authHeader.substring(7);
+        String username;
         try {
             username = Jwts.parserBuilder()
                     .setSigningKey(getSignInKey())
@@ -97,116 +92,47 @@ public class JwtService extends OncePerRequestFilter {
         }
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            Optional<TaiKhoan> taiKhoanOpt = taiKhoanRepository.findByTenDangNhap(username);
+            // Sử dụng hàm đã JOIN FETCH để không bị lỗi LazyLoading
+            Optional<TaiKhoan> taiKhoanOpt = taiKhoanRepository.findProfileByTenDangNhap(username);
 
             if (taiKhoanOpt.isPresent()) {
                 TaiKhoan tk = taiKhoanOpt.get();
 
-                // 1. KIỂM TRA QUYỀN ADMIN (Bằng tên đăng nhập hoặc quét danh sách quyền)
-                boolean isAdmin = "admin".equalsIgnoreCase(tk.getTenDangNhap());
+                // 1. Kiểm tra Admin an toàn
+                boolean isAdmin = "admin".equalsIgnoreCase(tk.getTenDangNhap()) ||
+                        tk.getDanhSachPhanQuyen().stream()
+                                .anyMatch(pq -> pq.getVaiTro() != null && "ROLE_ADMIN".equals(pq.getVaiTro().getTenVaiTro()));
+
+                // 2. Kiểm tra trạng thái tài khoản (Chỉ chặn User thường)
                 if (!isAdmin) {
-                    try {
-                        List<String> roles = tk.getDanhSachPhanQuyen().stream()
-                                .map(pq -> pq.getVaiTro().getTenVaiTro())
-                                .collect(Collectors.toList());
-                        isAdmin = roles.contains("ROLE_ADMIN");
-                    } catch (Exception e) {
-                        isAdmin = false;
-                    }
-                }
-
-                // 2. CHẶN NGƯỜI DÙNG THƯỜNG (Sử dụng chính xác Enum UserStatus bạn gửi)
-                if (!isAdmin) {
-                    boolean isLockedByStatus = false;
-
-                    if (tk.getTrangThai() != null) {
-                        // Kiểm tra nếu trạng thái bằng đúng Enum LOCKED hoặc chuỗi "LOCKED"
-                        isLockedByStatus = UserStatus.LOCKED.equals(tk.getTrangThai())
-                                || "LOCKED".equalsIgnoreCase(String.valueOf(tk.getTrangThai()));
-                    }
-
-                    // Kiểm tra điểm tin cậy (Null-safe)
-                    int diemTinCay = (tk.getDoTinCayNguoiDung() != null) ? tk.getDoTinCayNguoiDung() : 50;
-                    boolean isLockedByPoint = (diemTinCay < 5);
-
-                    // Nếu dính 1 trong 2 điều kiện thì chặn luôn
-                    if (isLockedByStatus || isLockedByPoint) {
+                    boolean isLocked = UserStatus.LOCKED.equals(tk.getTrangThai()) ||
+                            (tk.getDoTinCayNguoiDung() != null && tk.getDoTinCayNguoiDung() < 5);
+                    if (isLocked) {
                         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                         response.setContentType("application/json;charset=UTF-8");
-                        response.getWriter().write("{\"status\": 403, \"message\": \"Tài khoản của bạn đã bị khóa hoặc hạ điểm uy tín do vi phạm!\"}");
+                        response.getWriter().write("{\"status\": 403, \"message\": \"Tài khoản của bạn đã bị khóa!\"}");
                         return;
                     }
                 }
 
-                // 3. KIỂM TRA THỜI HẠN TOKEN
-                boolean isExpired = false;
-                try {
-                    Date expiration = Jwts.parserBuilder()
-                            .setSigningKey(getSignInKey())
-                            .build()
-                            .parseClaimsJws(jwt)
-                            .getBody()
-                            .getExpiration();
-                    isExpired = expiration.before(new Date());
-                } catch (Exception e) {
-                    isExpired = true;
+                // 3. Nạp quyền (Authorities) từ danh sách đã fetch sẵn
+                List<SimpleGrantedAuthority> authorities = tk.getDanhSachPhanQuyen().stream()
+                        .map(pq -> new SimpleGrantedAuthority(pq.getVaiTro().getTenVaiTro()))
+                        .collect(Collectors.toList());
+
+                if (authorities.isEmpty()) {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+                }
+                if (isAdmin) {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
                 }
 
-                if (!isExpired) {
-                    List<SimpleGrantedAuthority> authorities = new ArrayList<>();
-
-                    if (isAdmin) {
-                        authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
-                    } else {
-                        try {
-                            authorities = tk.getDanhSachPhanQuyen().stream()
-                                    .map(pq -> new SimpleGrantedAuthority(pq.getVaiTro().getTenVaiTro()))
-                                    .collect(Collectors.toList());
-
-                            if (authorities.isEmpty()) {
-                                authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
-                            }
-                        } catch (Exception e) {
-                            // Cứu cánh khi bị lỗi Lazy Loading Session
-                            authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
-                        }
-                    }
-
-                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                            tk, null, authorities
-                    );
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
-                }
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                        tk, null, authorities
+                );
+                SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         }
         filterChain.doFilter(request, response);
-    }
-
-    // CÁC HÀM PHỤC VỤ REFRESH TOKEN
-    public String extractUsername(String token) {
-        try {
-            return Jwts.parserBuilder()
-                    .setSigningKey(getSignInKey())
-                    .build()
-                    .parseClaimsJws(token)
-                    .getBody()
-                    .getSubject();
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    public boolean isTokenExpired(String token) {
-        try {
-            Date expiration = Jwts.parserBuilder()
-                    .setSigningKey(getSignInKey())
-                    .build()
-                    .parseClaimsJws(token)
-                    .getBody()
-                    .getExpiration();
-            return expiration.before(new Date());
-        } catch (Exception e) {
-            return true;
-        }
     }
 }
