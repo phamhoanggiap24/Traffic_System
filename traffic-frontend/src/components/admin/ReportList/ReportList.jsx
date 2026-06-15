@@ -25,29 +25,8 @@ const ReportList = ({ setActiveTab }) => {
   const [totalPages, setTotalPages] = useState(1);
 
   // Tự động thay đổi để vừa với màn hình của Admin
-  const [dynamicPageSize, setDynamicPageSize] = useState(7);
+  const dynamicPageSize = 8;
   const containerRef = useRef(null);
-
-  // Kiểm tra kích thước khung chứa bảng để tính toán số dòng tối đa trước khi bị tràn
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (let entry of entries) {
-        const containerHeight = entry.contentRect.height;
-        const headerHeight = 45;
-        const rowHeight = 49;
-
-        const availableHeight = containerHeight - headerHeight;
-        if (availableHeight > 0) {
-          const calculatedSize = Math.floor(availableHeight / rowHeight);
-          setDynamicPageSize(calculatedSize > 0 ? calculatedSize : 1);
-        }
-      }
-    });
-    resizeObserver.observe(containerRef.current);
-    return () => resizeObserver.disconnect();
-  }, []);
 
   // Update thời gian thực mỗi giây để hiển thị "5 phút trước", "10 phút trước" v.v.
   useEffect(() => {
@@ -135,7 +114,7 @@ const ReportList = ({ setActiveTab }) => {
   // Tự động đưa về trang 0 khi thay đổi bộ lọc
   useEffect(() => {
     setCurrentPage(0);
-  }, [searchUser, selectedLoai, selectedStatus, filterDate, dynamicPageSize]);
+  }, [searchUser, selectedLoai, selectedStatus, filterDate]);
 
   useEffect(() => {
     const autoRefreshInterval = setInterval(() => {
