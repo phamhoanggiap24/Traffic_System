@@ -41,52 +41,71 @@
   color: #2563eb;
 }
 
-/* RESPONSIVE MOBILE HEADER */
+/* RESPONSIVE MOBILE HEADER - ĐÃ CẬP NHẬT SỬA LỖI LAYOUT MOBILE */
 @media (max-width: 768px) {
   .header-container {
     padding: 12px 15px;
   }
-  
+
   .header-title {
     font-size: 16px;
   }
-  
+
   .header-menu-toggle {
     display: block;
   }
-  
+
   .header-right-actions {
-    gap: 15px;
+    gap: 12px; /* Thu hẹp khoảng cách các icon trên mobile một chút để đỡ chật */
   }
-  
+
   .header-search {
     display: none;
   }
-  
-  /* Notification dropdown responsive */
+
+  /* Notification dropdown responsive - ĐÃ SỬA: Phủ rộng vừa vặn màn hình di động, không bị bóp chữ */
   .noti-dropdown {
     position: fixed;
-    top: auto;
-    right: 10px;
-    left: 10px;
-    width: calc(100vw - 20px);
-    max-width: 320px;
-    max-height: 60vh;
+    top: 60px; /* Đẩy xuống dưới thanh header để hiển thị thoáng đãng */
+    right: 12px;
+    left: 12px;
+    width: calc(100vw - 24px); /* Tự co giãn cách đều 2 mép màn hình 12px */
+    max-width: none; /* Gỡ bỏ giới hạn cũ làm bóp nghẹt text */
+    max-height: 70vh;
     bottom: auto;
   }
-  
+
   .noti-dropdown-body {
-    max-height: calc(60vh - 80px);
+    max-height: calc(70vh - 60px);
   }
-  
+
+  /* Profile responsive - ĐÃ SỬA: Chống bóp méo Avatar và xử lý text tên */
+  .user-avatar-circle {
+    flex-shrink: 0 !important; /* Tuyệt đối giữ avatar luôn tròn, không bị bóp bẹp */
+  }
+
+  .user-text {
+    max-width: 70px; /* Giới hạn độ rộng vùng text để nhường chỗ cho icon chuông */
+  }
+
+  .user-name {
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Tên nếu quá dài tự động thêm dấu ... gọn gàng */
+  }
+
+  .user-role {
+    display: none; /* Ẩn bớt chữ "Thành viên" trên mobile để dồn diện tích hiển thị */
+  }
+
   /* Profile dropdown responsive */
   .profile-dropdown {
     position: fixed;
-    right: 10px;
+    right: 12px;
     left: auto;
-    width: calc(100vw - 20px);
-    max-width: 190px;
-    top: auto;
+    width: 160px;
+    top: 60px;
   }
 }
 

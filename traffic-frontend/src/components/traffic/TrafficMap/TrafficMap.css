@@ -152,6 +152,34 @@
   transform: translateY(-1px);
 }
 
+/* --- RESPONSIVE CHO DI ĐỘNG (SỬA LỖI ĐÈ NÚT ĐỊNH VỊ) --- */
+@media (max-width: 768px) {
+  /* Hủy bỏ neo tuyệt đối cũ gây lệch và đè nhau trên màn hình hẹp */
+  .routing-search-container {
+    left: 12px !important;
+    right: 70px !important; /* Tạo khoảng trống 70px đủ rộng ở bên phải cho nút Định Vị */
+    transform: none !important;
+    width: auto !important;
+    max-width: none !important;
+    top: 15px !important;
+  }
+
+  .current-location-btn-right {
+    right: 12px !important;
+    top: 15px !important;
+    width: 44px !important; /* Thu gọn kích thước nút một chút cho cân đối với thanh tìm kiếm mobile */
+    height: 44px !important;
+    flex-shrink: 0 !important; /* Tuyệt đối chặn co cụm biến dạng nút */
+  }
+
+  /* Đảm bảo phần gợi ý địa chỉ co giãn chuẩn theo khung tìm kiếm mới */
+  .suggestion-list {
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+  }
+}
+
 /* POPUP NỘI DUNG CHUNG */
 .leaflet-popup-content-wrapper {
   border-radius: 12px;
