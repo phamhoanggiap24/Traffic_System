@@ -94,44 +94,37 @@ const ReportList = ({ setActiveTab }) => {
 
       let apiUrl = '/report/admin/danh-sach';
 
-      // ĐỒNG BỘ BACKEND: Xử lý riêng biệt khi chọn bộ lọc trạng thái "Quá hạn"
       if (selectedStatus === 'QUA_HAN') {
-        // Nếu API Backend tách riêng endpoint cho báo cáo quá hạn, đổi endpoint tại đây
-        // Ví dụ: apiUrl = '/report/admin/qua-han';
-        // Hoặc nếu dùng chung, ta truyền tham số thời gian hiện tại kèm theo:
         queryParams.now = new Date().toISOString();
         queryParams.trangThai = 'QUA_HAN';
       } else if (selectedStatus) {
         queryParams.trangThai = selectedStatus;
       }
 
+      // 1. CHỈ KHAI BÁO 'res' MỘT LẦN DUY NHẤT Ở ĐÂY
       const res = await api.get(apiUrl, { params: queryParams });
-      const res = await api.get(apiUrl, { params: queryParams });
 
-        // Tách và kiểm tra dữ liệu an toàn theo đúng cấu trúc ApiResponse bọc 2 lớp data
-        let actualPageData = null;
+      // 2. LOGIC PHÂN TÍCH DỮ LIỆU AN TOÀN
+      let actualPageData = null;
 
-        if (res.data) {
-          if (res.data.status === 200 && res.data.data) {
-            // Trường hợp 1: axiosConfig giữ nguyên cấu trúc thô của Axios (res.data.data.content)
-            actualPageData = res.data.data;
-          } else if (res.data.content) {
-            // Trường hợp 2: axiosConfig đã bóc sẵn 1 lớp (res.data.content)
-            actualPageData = res.data;
-          } else if (res.data.data && res.data.data.content) {
-            // Trường hợp dự phòng tầng sâu
-            actualPageData = res.data.data;
-          }
+      if (res && res.data) {
+        if (res.data.status === 200 && res.data.data) {
+          actualPageData = res.data.data;
+        } else if (res.data.content) {
+          actualPageData = res.data;
+        } else if (res.data.data && res.data.data.content) {
+          actualPageData = res.data.data;
         }
+      }
 
-        // Tiến hành gán dữ liệu vào các State phân trang công quản
-        if (actualPageData && actualPageData.content) {
-          setReports(actualPageData.content);
-          setTotalPages(actualPageData.totalPages || 1);
-        } else {
-          setReports([]);
-          setTotalPages(1);
-        }
+      // 3. GÁN VÀO STATE ĐỂ HIỂN THỊ LÊN BẢNG
+      if (actualPageData && actualPageData.content) {
+        setReports(actualPageData.content);
+        setTotalPages(actualPageData.totalPages || 1);
+      } else {
+        setReports([]);
+        setTotalPages(1);
+      }
     } catch (err) {
       console.error("Lỗi tải danh sách:", err);
     } finally {
