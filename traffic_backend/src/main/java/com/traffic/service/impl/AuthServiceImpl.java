@@ -96,7 +96,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public ApiResponse<AuthResponse> login(LoginRequest request) {
-        Optional<TaiKhoan> taiKhoanOpt = taiKhoanRepository.findByTenDangNhap(request.getTenDangNhap());
+        Optional<TaiKhoan> taiKhoanOpt = taiKhoanRepository.findProfileByTenDangNhap(request.getTenDangNhap());
         if (taiKhoanOpt.isEmpty()) return ApiResponse.error(404, "Tài khoản không tồn tại!");
 
         TaiKhoan tk = taiKhoanOpt.get();

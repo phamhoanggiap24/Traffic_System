@@ -8,6 +8,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
@@ -28,6 +29,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Component
@@ -45,8 +47,21 @@ public class JwtService extends OncePerRequestFilter {
     @Autowired
     private TaiKhoanRepository taiKhoanRepository;
 
+    // HÀM TẠO TOKEN: Nạp sẵn danh sách các quyền vào Payload Claims
     public String generateToken(TaiKhoan taiKhoan) {
-        return buildToken(new HashMap<>(), taiKhoan, jwtExpiration);
+        Map<String, Object> claims = new HashMap<>();
+        try {
+            if (taiKhoan.getDanhSachPhanQuyen() != null) {
+                List<String> roles = taiKhoan.getDanhSachPhanQuyen().stream()
+                        .filter(pq -> pq.getVaiTro() != null)
+                        .map(pq -> pq.getVaiTro().getTenVaiTro())
+                        .collect(Collectors.toList());
+                claims.put("roles", roles); // Lưu danh sách quyền vào Token
+            }
+        } catch (Exception e) {
+            // Đề phòng LazyLoading lúc đăng ký tài khoản mới chưa fetch
+        }
+        return buildToken(claims, taiKhoan, jwtExpiration);
     }
 
     public String generateRefreshToken(TaiKhoan taiKhoan) {
@@ -68,6 +83,7 @@ public class JwtService extends OncePerRequestFilter {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
+    // BỘ LỌC CHẶN REQUEST VÀ ĐỒNG BỘ QUYỀN AN TOÀN
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
@@ -82,18 +98,20 @@ public class JwtService extends OncePerRequestFilter {
         String username = extractUsername(jwt);
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            // Sử dụng hàm JOIN FETCH chuẩn đã viết trong Repo của bạn
             Optional<TaiKhoan> taiKhoanOpt = taiKhoanRepository.findProfileByTenDangNhap(username);
 
             if (taiKhoanOpt.isPresent()) {
                 TaiKhoan tk = taiKhoanOpt.get();
 
-                // 1. Kiểm tra Admin bằng username hoặc bảng phân quyền
+                // 1. Kiểm tra đặc quyền Admin (Bằng tên đăng nhập hoặc bảng quyền DB)
                 boolean isAdmin = "admin".equalsIgnoreCase(tk.getTenDangNhap()) ||
                         (tk.getDanhSachPhanQuyen() != null && tk.getDanhSachPhanQuyen().stream()
                                 .anyMatch(pq -> pq.getVaiTro() != null &&
-                                        (RoleConstant.ROLE_ADMIN.equals(pq.getVaiTro().getTenVaiTro()) || "ADMIN".equalsIgnoreCase(pq.getVaiTro().getTenVaiTro()))));
+                                        (RoleConstant.ROLE_ADMIN.equalsIgnoreCase(pq.getVaiTro().getTenVaiTro()) ||
+                                                "ADMIN".equalsIgnoreCase(pq.getVaiTro().getTenVaiTro()))));
 
-                // 2. Kiểm tra trạng thái khóa (Bỏ qua nếu là Admin)
+                // 2. Kiểm tra trạng thái khóa (Bỏ qua nếu là Admin tối cao)
                 if (!isAdmin) {
                     boolean isLocked = UserStatus.LOCKED.equals(tk.getTrangThai()) ||
                             (tk.getDoTinCayNguoiDung() != null && tk.getDoTinCayNguoiDung() < 5);
@@ -105,34 +123,31 @@ public class JwtService extends OncePerRequestFilter {
                     }
                 }
 
-                // 3. Nạp quyền bảo mật (Đã bọc null-safe tránh crash hệ thống)
+                // 3. Chuẩn hóa nạp quyền (Authorities) cho Spring Security Context
                 List<SimpleGrantedAuthority> authorities = new ArrayList<>();
-                try {
-                    if (tk.getDanhSachPhanQuyen() != null) {
-                        authorities = tk.getDanhSachPhanQuyen().stream()
-                                .filter(pq -> pq.getVaiTro() != null && pq.getVaiTro().getTenVaiTro() != null)
-                                .map(pq -> {
-                                    String role = pq.getVaiTro().getTenVaiTro();
-                                    // Tự động thêm tiền tố ROLE_ nếu DB chỉ lưu chữ "ADMIN"/"USER" ngắn gọn
-                                    if (!role.startsWith("ROLE_")) {
-                                        role = "ROLE_" + role.toUpperCase();
-                                    }
-                                    return new SimpleGrantedAuthority(role);
-                                })
-                                .collect(Collectors.toList());
+
+                if (tk.getDanhSachPhanQuyen() != null && !tk.getDanhSachPhanQuyen().isEmpty()) {
+                    for (var pq : tk.getDanhSachPhanQuyen()) {
+                        if (pq.getVaiTro() != null && pq.getVaiTro().getTenVaiTro() != null) {
+                            String rawRole = pq.getVaiTro().getTenVaiTro().trim();
+                            authorities.add(new SimpleGrantedAuthority(rawRole));
+
+                            if (!rawRole.toUpperCase().startsWith("ROLE_")) {
+                                authorities.add(new SimpleGrantedAuthority("ROLE_" + rawRole.toUpperCase()));
+                            }
+                        }
                     }
-                } catch (Exception e) {
-                    // Tránh sập luồng filter khi lỗi DB nạp chậm
                 }
 
-                // Nếu danh sách rỗng, mặc định gán ROLE_USER
+                // Ép quyền Admin mặc định cho tài khoản admin cấp cao để loại bỏ hoàn toàn nguy cơ 403
+                if (isAdmin) {
+                    authorities.add(new SimpleGrantedAuthority("ADMIN"));
+                    authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
+                }
+
                 if (authorities.isEmpty()) {
-                    authorities.add(new SimpleGrantedAuthority(RoleConstant.ROLE_USER));
-                }
-
-                // Đặc cách: Nếu tên đăng nhập là "admin", ép thêm quyền ROLE_ADMIN vào danh sách để không bao giờ bị 403
-                if (isAdmin && authorities.stream().noneMatch(a -> RoleConstant.ROLE_ADMIN.equals(a.getAuthority()))) {
-                    authorities.add(new SimpleGrantedAuthority(RoleConstant.ROLE_ADMIN));
+                    authorities.add(new SimpleGrantedAuthority("USER"));
+                    authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
                 }
 
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
@@ -145,27 +160,25 @@ public class JwtService extends OncePerRequestFilter {
     }
 
     public String extractUsername(String token) {
-        try {
-            return Jwts.parserBuilder()
-                    .setSigningKey(getSignInKey())
-                    .build()
-                    .parseClaimsJws(token)
-                    .getBody()
-                    .getSubject();
-        } catch (Exception e) {
-            return null;
-        }
+        return extractClaim(token, Claims::getSubject);
+    }
+
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        final Claims claims = extractAllClaims(token);
+        return claimsResolver.apply(claims);
+    }
+
+    private Claims extractAllClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(getSignInKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
     }
 
     public boolean isTokenExpired(String token) {
         try {
-            Date expiration = Jwts.parserBuilder()
-                    .setSigningKey(getSignInKey())
-                    .build()
-                    .parseClaimsJws(token)
-                    .getBody()
-                    .getExpiration();
-            return expiration.before(new Date());
+            return extractAllClaims(token).getExpiration().before(new Date());
         } catch (Exception e) {
             return true;
         }
