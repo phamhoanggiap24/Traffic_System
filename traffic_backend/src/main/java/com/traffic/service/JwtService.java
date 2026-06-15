@@ -108,10 +108,11 @@ public class JwtService extends OncePerRequestFilter {
                     if (!isAdmin) {
                         boolean isLocked = UserStatus.LOCKED.equals(tk.getTrangThai()) ||
                                 (tk.getDoTinCayNguoiDung() != null && tk.getDoTinCayNguoiDung() < 5);
+
                         if (isLocked) {
                             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                             response.setContentType("application/json;charset=UTF-8");
-                            response.getWriter().write("{\"status\": 403, \"message\": \"Tài khoản bị khóa!\"}");
+                            response.getWriter().write("{\"status\": 403, \"message\": \"Tài khoản của bạn đã bị khóa hoặc điểm độ tin cậy quá thấp (<5)!\"}");
                             return;
                         }
                     }

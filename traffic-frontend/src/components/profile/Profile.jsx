@@ -19,7 +19,7 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
   // VÒNG ĐỜI KHI MỞ MODAL PROFILE
   useEffect(() => {
     if (isOpen && currentUser) {
-      // 1. Gán dữ liệu form cơ bản như cũ
+      // Gán dữ liệu form trực tiếp từ currentUser được truyền từ Header xuống
       setFormData({
         hoTen: currentUser.hoTen || '',
         soDienThoai: currentUser.soDienThoai || ''
@@ -28,27 +28,8 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
       setActiveTab('info');
       setPasswordData({ matKhauCu: '', matKhauMoi: '', confirmPassword: '' });
 
-      // 2. GỌI API LẤY ĐIỂM TIN CẬY MỚI NHẤT TỪ DATABASE (REAL-TIME)
-      const fetchFreshProfile = async () => {
-        try {
-          const res = await api.get('/profile/me'); // Đường dẫn API lấy thông tin cá nhân ở Backend
-          if (res.data && res.data.status === 200) {
-            setLiveProfile(res.data.data); // Lưu dữ liệu mới nhất (có điểm số thật) vào State
-
-            // Đồng bộ ngược lại cho form nếu thông tin dưới DB có thay đổi
-            setFormData({
-              hoTen: res.data.data.hoTen || '',
-              soDienThoai: res.data.data.soDienThoai || ''
-            });
-          }
-        } catch (err) {
-          console.error("Không thể làm mới điểm số uy tín:", err);
-          // Nếu API lỗi, fallback dùng tạm dữ liệu currentUser ban đầu
-          setLiveProfile(currentUser);
-        }
-      };
-
-      fetchFreshProfile();
+      // Sử dụng luôn dữ liệu từ currentUser truyền xuống, không gọi API /profile/me lỗi nữa
+      setLiveProfile(currentUser);
     }
   }, [isOpen, currentUser]);
 
