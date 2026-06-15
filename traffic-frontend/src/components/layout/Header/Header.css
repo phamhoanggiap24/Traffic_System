@@ -41,7 +41,7 @@
   color: #2563eb;
 }
 
-/* RESPONSIVE MOBILE HEADER - ĐÃ CẬP NHẬT SỬA LỖI LAYOUT MOBILE */
+/* RESPONSIVE MOBILE HEADER - ĐÃ TỐI ƯU CĂN GIỮA KHUNG THÔNG BÁO */
 @media (max-width: 768px) {
   .header-container {
     padding: 12px 15px;
@@ -56,47 +56,48 @@
   }
 
   .header-right-actions {
-    gap: 12px; /* Thu hẹp khoảng cách các icon trên mobile một chút để đỡ chật */
+    gap: 12px;
   }
 
   .header-search {
     display: none;
   }
 
-  /* Notification dropdown responsive - ĐÃ SỬA: Phủ rộng vừa vặn màn hình di động, không bị bóp chữ */
+  /* Notification dropdown responsive - ĐÃ SỬA: Thả xuống chính giữa màn hình điện thoại */
   .noti-dropdown {
-    position: fixed;
-    top: 60px; /* Đẩy xuống dưới thanh header để hiển thị thoáng đãng */
-    right: 12px;
-    left: 12px;
-    width: calc(100vw - 24px); /* Tự co giãn cách đều 2 mép màn hình 12px */
-    max-width: none; /* Gỡ bỏ giới hạn cũ làm bóp nghẹt text */
-    max-height: 70vh;
+    position: fixed !important;
+    top: 70px; /* Thả xuống ngay dưới thanh Header */
+    left: 50% !important; /* Đẩy mốc bắt đầu ra giữa màn hình */
+    right: auto !important; /* Hủy bỏ neo lề phải cũ */
+    transform: translateX(-50%) !important; /* Giúp căn đều chuẩn xác 100% ở giữa màn hình */
+    width: calc(100vw - 24px) !important; /* Chiều rộng chiếm tối đa, cách đều 2 mép viền 12px */
+    max-width: 360px !important; /* Khống chế không để quá to trên màn hình tablet bẹt */
+    max-height: 65vh;
     bottom: auto;
   }
 
   .noti-dropdown-body {
-    max-height: calc(70vh - 60px);
+    max-height: calc(65vh - 60px);
   }
 
-  /* Profile responsive - ĐÃ SỬA: Chống bóp méo Avatar và xử lý text tên */
+  /* Profile responsive */
   .user-avatar-circle {
-    flex-shrink: 0 !important; /* Tuyệt đối giữ avatar luôn tròn, không bị bóp bẹp */
+    flex-shrink: 0 !important;
   }
 
   .user-text {
-    max-width: 70px; /* Giới hạn độ rộng vùng text để nhường chỗ cho icon chuông */
+    max-width: 70px;
   }
 
   .user-name {
     font-size: 12px;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis; /* Tên nếu quá dài tự động thêm dấu ... gọn gàng */
+    text-overflow: ellipsis;
   }
 
   .user-role {
-    display: none; /* Ẩn bớt chữ "Thành viên" trên mobile để dồn diện tích hiển thị */
+    display: none;
   }
 
   /* Profile dropdown responsive */
@@ -105,7 +106,7 @@
     right: 12px;
     left: auto;
     width: 160px;
-    top: 60px;
+    top: 70px;
   }
 }
 
