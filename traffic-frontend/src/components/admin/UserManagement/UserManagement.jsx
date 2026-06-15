@@ -17,10 +17,7 @@ const UserManagement = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('accessToken');
-      const queryParams = {
-        page: currentPage,
-        size: 7
-      };
+      const queryParams = { page: currentPage, size: 7 };
 
       if (searchUsername && searchUsername.trim() !== "") {
         queryParams.tenDangNhap = searchUsername.trim();
@@ -31,19 +28,17 @@ const UserManagement = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (res.data && res.data.content) {
-        setUsers(res.data.content);
-        setTotalPages(res.data.totalPages);
+      if (res.data && res.data.data && res.data.data.content) {
+        setUsers(res.data.data.content);
+        setTotalPages(res.data.data.totalPages || 1);
       } else {
-        setUsers(res.data || []);
+        setUsers([]);
         setTotalPages(1);
       }
       setError(null);
     } catch (err) {
-      console.error("Lỗi:", err.response);
-      setError(err.response?.status === 403
-        ? "Bạn không có quyền truy cập quản trị."
-        : "Không thể kết nối tới máy chủ.");
+      console.error("Lỗi:", err);
+      setError("Không thể kết nối tới máy chủ.");
     } finally {
       setLoading(false);
     }
@@ -168,7 +163,7 @@ const UserManagement = () => {
                 </thead>
                 <tbody>
                   {users.map((u) => {
-                    const isAdminUser = u.vaiTro?.some(r => r.includes('ADMIN'));
+                    const isAdminUser = Array.isArray(u.vaiTro) && u.vaiTro.some(r => typeof r === 'string' && r.includes('ADMIN'));
                     const isLocked = u.trangThaiTaiKhoan === 'LOCKED' || (u.doTinCayNguoiDung !== null && u.doTinCayNguoiDung < 5 && !isAdminUser);
 
                     return (

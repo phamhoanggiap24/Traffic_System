@@ -106,14 +106,32 @@ const ReportList = ({ setActiveTab }) => {
       }
 
       const res = await api.get(apiUrl, { params: queryParams });
-      const responseData = res.data?.data || res.data;
+      const res = await api.get(apiUrl, { params: queryParams });
 
-      if (responseData && responseData.content) {
-        setReports(responseData.content);
-        setTotalPages(responseData.totalPages);
-      } else {
-        setReports([]);
-      }
+        // Tách và kiểm tra dữ liệu an toàn theo đúng cấu trúc ApiResponse bọc 2 lớp data
+        let actualPageData = null;
+
+        if (res.data) {
+          if (res.data.status === 200 && res.data.data) {
+            // Trường hợp 1: axiosConfig giữ nguyên cấu trúc thô của Axios (res.data.data.content)
+            actualPageData = res.data.data;
+          } else if (res.data.content) {
+            // Trường hợp 2: axiosConfig đã bóc sẵn 1 lớp (res.data.content)
+            actualPageData = res.data;
+          } else if (res.data.data && res.data.data.content) {
+            // Trường hợp dự phòng tầng sâu
+            actualPageData = res.data.data;
+          }
+        }
+
+        // Tiến hành gán dữ liệu vào các State phân trang công quản
+        if (actualPageData && actualPageData.content) {
+          setReports(actualPageData.content);
+          setTotalPages(actualPageData.totalPages || 1);
+        } else {
+          setReports([]);
+          setTotalPages(1);
+        }
     } catch (err) {
       console.error("Lỗi tải danh sách:", err);
     } finally {
