@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../../api/axiosConfig';
 import './ReportList.css';
 import { MapPin, Search, Trash2, AlertTriangle, CheckCircle, RefreshCw, Clock, ChevronDown, Calendar, EyeOff, Image as ImageIcon, X } from 'lucide-react';
@@ -8,11 +8,7 @@ const ReportList = ({ setActiveTab }) => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-
-  // State để lưu ảnh khi được click phóng to
   const [modalImage, setModalImage] = useState(null);
-
-  // State để trigger re-render mỗi giây để cập nhật thời gian thực
   const [, setTimeUpdate] = useState(0);
 
   // States cho bộ lọc
@@ -24,11 +20,10 @@ const ReportList = ({ setActiveTab }) => {
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Tự động thay đổi để vừa với màn hình của Admin
-  const dynamicPageSize = 8;
-  const containerRef = useRef(null);
+  // CỐ ĐỊNH SỐ DÒNG: Thay vì tự đo chiều cao gây crash, đặt cố định 7 dòng/trang
+  const dynamicPageSize = 7;
 
-  // Update thời gian thực mỗi giây để hiển thị "5 phút trước", "10 phút trước" v.v.
+  // Cập nhật thời gian thực mỗi giây cho các thẻ khoảng cách thời gian
   useEffect(() => {
     const interval = setInterval(() => {
       setTimeUpdate(prev => prev + 1);
@@ -36,25 +31,20 @@ const ReportList = ({ setActiveTab }) => {
     return () => clearInterval(interval);
   }, []);
 
-  // Tính trạng thái thực tế dựa theo từng loại sự cố và bộ lọc hiện tại
+  // Tính trạng thái thực tế dựa theo từng loại sự cố
   const getEffectiveStatus = useCallback((item) => {
-    // Nếu trạng thái cứng đã duyệt/ẩn/xóa thì giữ nguyên
     if (['DA_XAC_MINH', 'SAI_SU_THAT', 'AN_HIEN_THI', 'DA_XOA'].includes(item.trangThai)) {
       return item.trangThai;
     }
-
-    // Tính khoảng cách thời gian từ lúc tạo đến nay
     const reportTime = new Date(item.thoiGianBaoCao);
     const currentTime = new Date();
     const timeDiffMs = currentTime.getTime() - reportTime.getTime();
     let expireMinutes = (item.loaiSuCoId === 1 || item.loaiSuCoId === 2) ? 30 : 60;
     const expireLimit = expireMinutes * 60 * 1000;
 
-    // Nếu bản ghi dưới DB là NGHI_VAN mà đã quá thời gian giới hạn -> Ép hiển thị thành QUA_HAN
     if (item.trangThai === 'NGHI_VAN') {
       return timeDiffMs > expireLimit ? 'QUA_HAN' : 'NGHI_VAN';
     }
-
     return item.trangThai;
   }, []);
 
@@ -80,12 +70,10 @@ const ReportList = ({ setActiveTab }) => {
         queryParams.trangThai = selectedStatus;
       }
 
-      // 1. CHỈ KHAI BÁO 'res' MỘT LẦN DUY NHẤT Ở ĐÂY
       const res = await api.get(apiUrl, { params: queryParams });
 
-      // 2. LOGIC PHÂN TÍCH DỮ LIỆU AN TOÀN
+      // Xử lý bóc tách dữ liệu an toàn chống lỗi cấu trúc ApiResponse
       let actualPageData = null;
-
       if (res && res.data) {
         if (res.data.status === 200 && res.data.data) {
           actualPageData = res.data.data;
@@ -96,7 +84,6 @@ const ReportList = ({ setActiveTab }) => {
         }
       }
 
-      // 3. GÁN VÀO STATE ĐỂ HIỂN THỊ LÊN BẢNG
       if (actualPageData && actualPageData.content) {
         setReports(actualPageData.content);
         setTotalPages(actualPageData.totalPages || 1);
@@ -111,27 +98,19 @@ const ReportList = ({ setActiveTab }) => {
     }
   }, [currentPage, dynamicPageSize, selectedLoai, searchUser, selectedStatus, filterDate]);
 
-  // Tự động đưa về trang 0 khi thay đổi bộ lọc
+  // Tự động đưa về trang 0 khi thay đổi bộ lọc (Đã loại bỏ hoàn toàn biến dynamicPageSize để chống Loop)
   useEffect(() => {
     setCurrentPage(0);
   }, [searchUser, selectedLoai, selectedStatus, filterDate]);
 
+  // Tải lại dữ liệu khi trang thay đổi hoặc bộ lọc thay đổi
   useEffect(() => {
-    const autoRefreshInterval = setInterval(() => {
-      if (!loading && !isProcessing) {
-        console.log("Hệ thống tự động làm mới danh sách báo cáo sự cố...");
-        loadReports();
-      }
-    }, 5000);
-
-    return () => clearInterval(autoRefreshInterval);
-  }, [loadReports, loading, isProcessing]);
+    loadReports();
+  }, [loadReports]);
 
   // XỬ LÝ DUYỆT / TỪ CHỐI BÁO CÁO
   const handleVerify = async (id, trangThaiMoi) => {
-    const confirmMsg = trangThaiMoi === 'DA_XAC_MINH'
-      ? "Xác nhận báo cáo?"
-      : "Từ chối báo cáo?";
+    const confirmMsg = trangThaiMoi === 'DA_XAC_MINH' ? "Xác nhận báo cáo?" : "Từ chối báo cáo?";
     if (!window.confirm(confirmMsg)) return;
     setIsProcessing(true);
     try {
@@ -161,7 +140,6 @@ const ReportList = ({ setActiveTab }) => {
     }
   };
 
-  // ĐIỀU HƯỚNG SANG MAP
   const handleViewOnMap = (item) => {
     const effectiveStatus = getEffectiveStatus(item);
     const focusData = {
@@ -196,16 +174,13 @@ const ReportList = ({ setActiveTab }) => {
       pages.push(0);
       if (leftSide > 1) pages.push('...');
     }
-
     for (let i = leftSide; i <= rightSide; i++) {
       pages.push(i);
     }
-
     if (rightSide < totalPages - 1) {
       if (rightSide < totalPages - 2) pages.push('...');
       pages.push(totalPages - 1);
     }
-
     return pages;
   };
 
@@ -221,7 +196,6 @@ const ReportList = ({ setActiveTab }) => {
               src={modalImage.startsWith('http') ? modalImage : `http://localhost:8080${modalImage}`}
               alt="Hình ảnh sự cố đính kèm thực tế"
               onError={(e) => {
-                console.error('Lỗi tải hình ảnh:', e.target.src);
                 e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='400'%3E%3Crect fill='%23f0f0f0' width='600' height='400'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='20' fill='%23999' text-anchor='middle' dy='.3em'%3EKhông thể tải hình ảnh%3C/text%3E%3C/svg%3E";
               }}
             />
@@ -253,7 +227,7 @@ const ReportList = ({ setActiveTab }) => {
           </div>
         </div>
 
-        <div ref={containerRef} className={`table-responsive ${loading ? "opacity-50" : ""}`}>
+        <div className={`table-responsive ${loading ? "opacity-50" : ""}`}>
           <div className="table-scroll-container">
             <table className="report-table">
               <thead>
@@ -330,11 +304,7 @@ const ReportList = ({ setActiveTab }) => {
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         {item.hinhAnhUrl ? (
-                          <button
-                            className="btn-view-image"
-                            onClick={() => setModalImage(item.hinhAnhUrl)}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                          >
+                          <button className="btn-view-image" onClick={() => setModalImage(item.hinhAnhUrl)}>
                             <ImageIcon size={16} color="#3b82f6" />
                           </button>
                         ) : (
@@ -365,7 +335,6 @@ const ReportList = ({ setActiveTab }) => {
                               <button className="btn-reject" style={{ padding: '4px 10px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }} disabled={isProcessing} onClick={() => handleVerify(item.baoCaoId || item.id, 'SAI_SU_THAT')}>Từ chối</button>
                             </>
                           ) : (
-                            // Nếu báo cáo đã duyệt, từ chối hoặc đã gỡ khỏi map, nút xóa sẽ xuất hiện
                             effectiveStatus !== 'DA_XOA' && (
                               <button className="btn-delete" disabled={isProcessing} onClick={() => handleDelete(item.baoCaoId || item.id)}>
                                 <Trash2 size={18} />

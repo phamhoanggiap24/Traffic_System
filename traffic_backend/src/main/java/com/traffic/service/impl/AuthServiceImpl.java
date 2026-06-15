@@ -104,9 +104,13 @@ public class AuthServiceImpl implements AuthService {
 
         List<String> roles = tk.getDanhSachPhanQuyen().stream().map(pq -> pq.getVaiTro().getTenVaiTro()).collect(Collectors.toList());
         boolean isAdmin = roles.contains(RoleConstant.ROLE_ADMIN);
+
+        // 1. Tính toán trạng thái khóa an toàn bằng cách ép chuỗi ép kiểu
+        boolean isLockedByStatus = tk.getTrangThai() == UserStatus.LOCKED || "LOCKED".equals(String.valueOf(tk.getTrangThai()));
         boolean isLockedByPoint = (tk.getDoTinCayNguoiDung() != null && tk.getDoTinCayNguoiDung() < 5);
 
-        if (!isAdmin && (tk.getTrangThai() == UserStatus.LOCKED || isLockedByPoint)) {
+        // 2. Kiểm tra điều kiện chặn đăng nhập
+        if (!isAdmin && (isLockedByStatus || isLockedByPoint)) {
             saveSystemLog(tk, "LOGIN_BLOCKED", "Tài khoản bị khóa.");
             return ApiResponse.error(403, "Tài khoản bị khóa do vi phạm hoặc điểm tin cậy thấp!");
         }

@@ -40,11 +40,7 @@ public class UserManagementServiceImpl implements UserManagementService {
             dto.setDoTinCayNguoiDung(user.getDoTinCayNguoiDung() != null ? user.getDoTinCayNguoiDung() : 50);
             dto.setSoDienThoai(user.getSoDienThoai());
 
-            if (user.getDoTinCayNguoiDung() != null && user.getDoTinCayNguoiDung() < 5) {
-                dto.setTrangThaiTaiKhoan(UserStatus.LOCKED);
-            } else {
-                dto.setTrangThaiTaiKhoan(UserStatus.ACTIVE);
-            }
+            dto.setTrangThaiTaiKhoan(user.getTrangThai());
 
             if (user.getDanhSachPhanQuyen() != null) {
                 List<String> roles = user.getDanhSachPhanQuyen().stream()
