@@ -29,7 +29,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Component
@@ -47,21 +46,17 @@ public class JwtService extends OncePerRequestFilter {
     @Autowired
     private TaiKhoanRepository taiKhoanRepository;
 
-    // HÀM TẠO TOKEN: Nạp sẵn danh sách các quyền vào Payload Claims
+    // HÀM TẠO ACCESSTOKEN: Nạp danh sách quyền (Roles) vào Claims của JWT
     public String generateToken(TaiKhoan taiKhoan) {
-        Map<String, Object> claims = new HashMap<>();
-        try {
-            if (taiKhoan.getDanhSachPhanQuyen() != null) {
-                List<String> roles = taiKhoan.getDanhSachPhanQuyen().stream()
-                        .filter(pq -> pq.getVaiTro() != null)
-                        .map(pq -> pq.getVaiTro().getTenVaiTro())
-                        .collect(Collectors.toList());
-                claims.put("roles", roles); // Lưu danh sách quyền vào Token
-            }
-        } catch (Exception e) {
-            // Đề phòng LazyLoading lúc đăng ký tài khoản mới chưa fetch
+        Map<String, Object> extraClaims = new HashMap<>();
+        if (taiKhoan.getDanhSachPhanQuyen() != null) {
+            List<String> roles = taiKhoan.getDanhSachPhanQuyen().stream()
+                    .filter(pq -> pq.getVaiTro() != null)
+                    .map(pq -> pq.getVaiTro().getTenVaiTro())
+                    .collect(Collectors.toList());
+            extraClaims.put("roles", roles); // Đẩy mảng các quyền vào Token
         }
-        return buildToken(claims, taiKhoan, jwtExpiration);
+        return buildToken(extraClaims, taiKhoan, jwtExpiration);
     }
 
     public String generateRefreshToken(TaiKhoan taiKhoan) {
@@ -83,7 +78,7 @@ public class JwtService extends OncePerRequestFilter {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    // BỘ LỌC CHẶN REQUEST VÀ ĐỒNG BỘ QUYỀN AN TOÀN
+    // BỘ LỌC KIỂM TRA VÀ DUYỆT QUYỀN MỖI REQUEST
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
@@ -98,48 +93,67 @@ public class JwtService extends OncePerRequestFilter {
         String username = extractUsername(jwt);
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            // Sử dụng hàm JOIN FETCH chuẩn đã viết trong Repo của bạn
+            // Nạp dữ liệu tài khoản bằng hàm FETCH JOIN tối ưu từ Repo của bạn
             Optional<TaiKhoan> taiKhoanOpt = taiKhoanRepository.findProfileByTenDangNhap(username);
 
             if (taiKhoanOpt.isPresent()) {
                 TaiKhoan tk = taiKhoanOpt.get();
 
-                // 1. Kiểm tra đặc quyền Admin (Bằng tên đăng nhập hoặc bảng quyền DB)
+                // 1. Kiểm tra Admin đặc cách (Dựa trên username hoặc bảng phân quyền DB)
                 boolean isAdmin = "admin".equalsIgnoreCase(tk.getTenDangNhap()) ||
                         (tk.getDanhSachPhanQuyen() != null && tk.getDanhSachPhanQuyen().stream()
                                 .anyMatch(pq -> pq.getVaiTro() != null &&
                                         (RoleConstant.ROLE_ADMIN.equalsIgnoreCase(pq.getVaiTro().getTenVaiTro()) ||
                                                 "ADMIN".equalsIgnoreCase(pq.getVaiTro().getTenVaiTro()))));
 
-                // 2. Kiểm tra trạng thái khóa (Bỏ qua nếu là Admin tối cao)
+                // 2. Kiểm tra trạng thái khóa (Nếu là đặc quyền Admin thì bỏ qua bước chặn)
                 if (!isAdmin) {
                     boolean isLocked = UserStatus.LOCKED.equals(tk.getTrangThai()) ||
                             (tk.getDoTinCayNguoiDung() != null && tk.getDoTinCayNguoiDung() < 5);
                     if (isLocked) {
                         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                         response.setContentType("application/json;charset=UTF-8");
-                        response.getWriter().write("{\"status\": 403, \"message\": \"Tài khoản của bạn đã bị khóa!\"}");
+                        response.getWriter().write("{\"status\": 403, \"message\": \"Tài khoản đã bị khóa!\"}");
                         return;
                     }
                 }
 
-                // 3. Chuẩn hóa nạp quyền (Authorities) cho Spring Security Context
+                // 3. Đọc danh sách quyền trực tiếp từ Token Payload (Claims)
                 List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+                try {
+                    Claims claims = Jwts.parserBuilder()
+                            .setSigningKey(getSignInKey())
+                            .build()
+                            .parseClaimsJws(jwt)
+                            .getBody();
 
-                if (tk.getDanhSachPhanQuyen() != null && !tk.getDanhSachPhanQuyen().isEmpty()) {
-                    for (var pq : tk.getDanhSachPhanQuyen()) {
-                        if (pq.getVaiTro() != null && pq.getVaiTro().getTenVaiTro() != null) {
-                            String rawRole = pq.getVaiTro().getTenVaiTro().trim();
-                            authorities.add(new SimpleGrantedAuthority(rawRole));
-
-                            if (!rawRole.toUpperCase().startsWith("ROLE_")) {
-                                authorities.add(new SimpleGrantedAuthority("ROLE_" + rawRole.toUpperCase()));
+                    List<?> roles = claims.get("roles", List.class);
+                    if (roles != null) {
+                        for (Object roleObj : roles) {
+                            String roleStr = String.valueOf(roleObj).trim();
+                            authorities.add(new SimpleGrantedAuthority(roleStr));
+                            // Hỗ trợ phòng hờ cả dạng không có tiền tố ROLE_
+                            if (!roleStr.toUpperCase().startsWith("ROLE_")) {
+                                authorities.add(new SimpleGrantedAuthority("ROLE_" + roleStr.toUpperCase()));
                             }
                         }
                     }
+                } catch (Exception e) {
+                    // Nếu lỗi Token không đọc được claims, fallback đọc từ dữ liệu DB vừa nạp
+                    if (tk.getDanhSachPhanQuyen() != null) {
+                        tk.getDanhSachPhanQuyen().forEach(pq -> {
+                            if (pq.getVaiTro() != null) {
+                                String roleStr = pq.getVaiTro().getTenVaiTro();
+                                authorities.add(new SimpleGrantedAuthority(roleStr));
+                                if (!roleStr.toUpperCase().startsWith("ROLE_")) {
+                                    authorities.add(new SimpleGrantedAuthority("ROLE_" + roleStr.toUpperCase()));
+                                }
+                            }
+                        });
+                    }
                 }
 
-                // Ép quyền Admin mặc định cho tài khoản admin cấp cao để loại bỏ hoàn toàn nguy cơ 403
+                // Nếu hệ thống xác định tài khoản là Admin, ép chặt quyền ADMIN vào context
                 if (isAdmin) {
                     authorities.add(new SimpleGrantedAuthority("ADMIN"));
                     authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
@@ -160,25 +174,27 @@ public class JwtService extends OncePerRequestFilter {
     }
 
     public String extractUsername(String token) {
-        return extractClaim(token, Claims::getSubject);
-    }
-
-    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-        final Claims claims = extractAllClaims(token);
-        return claimsResolver.apply(claims);
-    }
-
-    private Claims extractAllClaims(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(getSignInKey())
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
+        try {
+            return Jwts.parserBuilder()
+                    .setSigningKey(getSignInKey())
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody()
+                    .getSubject();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     public boolean isTokenExpired(String token) {
         try {
-            return extractAllClaims(token).getExpiration().before(new Date());
+            Date expiration = Jwts.parserBuilder()
+                    .setSigningKey(getSignInKey())
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody()
+                    .getExpiration();
+            return expiration.before(new Date());
         } catch (Exception e) {
             return true;
         }
