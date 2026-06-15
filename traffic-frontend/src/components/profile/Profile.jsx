@@ -84,9 +84,7 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
     setLoading(true);
     try {
       const res = await api.put('/profile/update-info', {
-        tenDangNhap: currentUser?.tenDangNhap,
         hoTen: formData.hoTen.trim(),
-        email: currentUser?.email,
         soDienThoai: formData.soDienThoai.trim()
       });
 

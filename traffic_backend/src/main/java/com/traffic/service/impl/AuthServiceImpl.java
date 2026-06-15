@@ -4,23 +4,18 @@ import com.traffic.common.ApiResponse;
 import com.traffic.common.AuthMessage;
 import com.traffic.common.RoleConstant;
 import com.traffic.common.UserStatus;
-import com.traffic.dto.request.ChangePasswordRequest;
-import com.traffic.dto.request.LoginRequest;
-import com.traffic.dto.request.RegisterRequest;
-import com.traffic.dto.request.ResetPasswordRequest;
+import com.traffic.dto.request.*;
 import com.traffic.dto.response.AuthResponse;
 import com.traffic.dto.response.ResetPasswordResponse;
 import com.traffic.dto.response.UserManagementResponse;
 import com.traffic.entity.*;
 import com.traffic.repository.*;
 import com.traffic.service.AuthService;
+import com.traffic.service.EmailService;
 import com.traffic.service.JwtService;
 import io.jsonwebtoken.ExpiredJwtException;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,71 +29,28 @@ import java.util.stream.Collectors;
 @Service
 public class AuthServiceImpl implements AuthService {
 
-    @Autowired
-    private TaiKhoanRepository taiKhoanRepository;
-
-    @Autowired
-    private JwtService jwtService;
-
-    @Autowired
-    private VaiTroRepository vaiTroRepository;
-
-    @Autowired
-    private PhanQuyenRepository phanQuyenRepository;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-
-    @Autowired
-    private QuenMatKhauRepository quenMatKhauRepository;
-
-    @Value("${MAIL_USERNAME}")
-    private String emailSender;
-
-    @Autowired
-    private JavaMailSender mailSender;
-
-    @Autowired
-    private ModelMapper modelMapper;
-
-    @Autowired
-    private NhatKyHeThongRepository nhatKyHeThongRepository;
+    @Autowired private TaiKhoanRepository taiKhoanRepository;
+    @Autowired private JwtService jwtService;
+    @Autowired private VaiTroRepository vaiTroRepository;
+    @Autowired private PhanQuyenRepository phanQuyenRepository;
+    @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private QuenMatKhauRepository quenMatKhauRepository;
+    @Autowired private ModelMapper modelMapper;
+    @Autowired private NhatKyHeThongRepository nhatKyHeThongRepository;
+    @Autowired private EmailService emailService;
 
     @Override
     @Transactional
     public ApiResponse<UserManagementResponse> register(RegisterRequest request) {
-        // 1. Kiểm tra tên đăng nhập và email đã tồn tại chưa
-        if (taiKhoanRepository.existsByTenDangNhap(request.getTenDangNhap())) {
+        if (taiKhoanRepository.existsByTenDangNhap(request.getTenDangNhap()))
             return ApiResponse.error(400, "Tên đăng nhập đã tồn tại!");
-        }
-
-        if (taiKhoanRepository.existsByEmail(request.getEmail())) {
+        if (taiKhoanRepository.existsByEmail(request.getEmail()))
             return ApiResponse.error(400, "Email đã tồn tại!");
-        }
 
-        // Tạo mã Token bí mật
         String token = UUID.randomUUID().toString();
+        // Gửi mail bất đồng bộ (không làm treo ứng dụng)
+        emailService.sendVerificationEmail(request.getEmail(), request.getHoTen(), token);
 
-        // Tạo link xác thực
-        String verifyLink = "http://localhost:8080/api/auth/verify?token=" + token;
-
-        // Thử gửi mail để xác thực email thật
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(emailSender);
-            message.setTo(request.getEmail());
-            message.setSubject("XÁC NHẬN ĐĂNG KÝ HỆ THỐNG GIAO THÔNG");
-            message.setText("Chào " + request.getHoTen() + ",\n\n" +
-                    "Cảm ơn bạn đã đăng ký. Vui lòng nhấn vào đường link bên dưới để kích hoạt tài khoản:\n" +
-                    verifyLink + "\n\n" +
-                    "Link này sẽ hết hạn sau 24 giờ.");
-
-            mailSender.send(message);
-        } catch (Exception e) {
-            return ApiResponse.error(400, "Email không tồn tại hoặc không thể nhận tin nhắn!");
-        }
-
-        // Tạo thực thể TaiKhoan
         TaiKhoan tk = new TaiKhoan();
         tk.setTenDangNhap(request.getTenDangNhap());
         tk.setMatKhau(passwordEncoder.encode(request.getMatKhau()));
@@ -108,42 +60,31 @@ public class AuthServiceImpl implements AuthService {
         tk.setVerificationToken(token);
         tk.setTokenCreatedAt(LocalDateTime.now());
         tk.setTrangThai(UserStatus.INACTIVE);
+        tk.setDoTinCayNguoiDung(50);
 
         TaiKhoan savedTk = taiKhoanRepository.save(tk);
 
-        // Gán vai trò mặc định (ROLE_USER)
         VaiTro vaiTroUser = vaiTroRepository.findByTenVaiTro(RoleConstant.ROLE_USER)
                 .orElseThrow(() -> new RuntimeException("Lỗi: Không tìm thấy vai trò ROLE_USER."));
 
         PhanQuyen pq = new PhanQuyen();
         pq.setTaiKhoan(savedTk);
         pq.setVaiTro(vaiTroUser);
-
         phanQuyenRepository.save(pq);
 
-        // Trả về UserResponse
         UserManagementResponse userDto = modelMapper.map(savedTk, UserManagementResponse.class);
         userDto.setVaiTro(List.of(vaiTroUser.getTenVaiTro()));
+        userDto.setDoTinCayNguoiDung(savedTk.getDoTinCayNguoiDung());
 
-        return ApiResponse.success("Đăng ký thành công! Vui lòng kiểm tra Email để kích hoạt tài khoản.", userDto);
+        return ApiResponse.success("Đăng ký thành công! Vui lòng kiểm tra Email để kích hoạt.", userDto);
     }
 
     @Override
     public int verifyAccount(String token) {
-        // Tìm tài khoản nào đang giữ mã token này
         Optional<TaiKhoan> optionalTk = taiKhoanRepository.findByVerificationToken(token);
-
         if (optionalTk.isPresent()) {
             TaiKhoan tk = optionalTk.get();
-
-            // Kiểm tra hết hạn
-            LocalDateTime now = LocalDateTime.now();
-            long hours = java.time.Duration.between(tk.getTokenCreatedAt(), now).toHours();
-
-            if (hours > 24) {
-                return 0;
-            }
-
+            if (java.time.Duration.between(tk.getTokenCreatedAt(), LocalDateTime.now()).toHours() > 24) return 0;
             tk.setTrangThai(UserStatus.ACTIVE);
             tk.setVerificationToken(null);
             tk.setTokenCreatedAt(null);
@@ -155,254 +96,135 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public ApiResponse<AuthResponse> login(LoginRequest request) {
-        // Tìm tài khoản theo username
         Optional<TaiKhoan> taiKhoanOpt = taiKhoanRepository.findByTenDangNhap(request.getTenDangNhap());
-
-        if (taiKhoanOpt.isEmpty()) {
-            return ApiResponse.<AuthResponse>error(404, "Tài khoản không tồn tại!");
-        }
+        if (taiKhoanOpt.isEmpty()) return ApiResponse.error(404, "Tài khoản không tồn tại!");
 
         TaiKhoan tk = taiKhoanOpt.get();
+        if (tk.getTrangThai() == UserStatus.INACTIVE) return ApiResponse.error(403, "Tài khoản chưa kích hoạt!");
 
-        // Chặn nếu tài khoản chưa kích hoạt qua Gmail
-        if (tk.getTrangThai() == UserStatus.INACTIVE) {
-            return ApiResponse.<AuthResponse>error(403, "Tài khoản chưa được kích hoạt. Vui lòng kiểm tra Gmail để xác nhận!");
-        }
-
-        // KIỂM TRA PHÂN QUYỀN
-        List<String> roles = tk.getDanhSachPhanQuyen().stream()
-                .map(pq -> pq.getVaiTro().getTenVaiTro())
-                .collect(Collectors.toList());
+        List<String> roles = tk.getDanhSachPhanQuyen().stream().map(pq -> pq.getVaiTro().getTenVaiTro()).collect(Collectors.toList());
         boolean isAdmin = roles.contains(RoleConstant.ROLE_ADMIN);
-
-        // CHỈ KHÓA NẾU KHÔNG PHẢI LÀ ADMIN
         boolean isLockedByPoint = (tk.getDoTinCayNguoiDung() != null && tk.getDoTinCayNguoiDung() < 5);
+
         if (!isAdmin && (tk.getTrangThai() == UserStatus.LOCKED || isLockedByPoint)) {
-            saveSystemLog(tk, "LOGIN_BLOCKED", "Tài khoản bị khóa đăng nhập.");
-            return ApiResponse.<AuthResponse>error(403, "Tài khoản của bạn đã bị khóa do vi phạm quy định hoặc điểm tin cậy thấp!");
+            saveSystemLog(tk, "LOGIN_BLOCKED", "Tài khoản bị khóa.");
+            return ApiResponse.error(403, "Tài khoản bị khóa do vi phạm hoặc điểm tin cậy thấp!");
         }
 
-        // Trạng thái hợp lệ thì mới tiến hành kiểm tra mật khẩu
-        if (!passwordEncoder.matches(request.getMatKhau(), tk.getMatKhau())) {
-            return ApiResponse.<AuthResponse>error(401, "Mật khẩu không chính xác!");
-        }
+        if (!passwordEncoder.matches(request.getMatKhau(), tk.getMatKhau()))
+            return ApiResponse.error(401, "Mật khẩu không chính xác!");
 
-        // Tiến hành tạo dữ liệu trả về
         UserManagementResponse userDto = modelMapper.map(tk, UserManagementResponse.class);
         userDto.setVaiTro(roles);
-
-        String accessToken = jwtService.generateToken(tk);
-        String refreshToken = jwtService.generateRefreshToken(tk);
+        userDto.setDoTinCayNguoiDung(tk.getDoTinCayNguoiDung() != null ? tk.getDoTinCayNguoiDung() : 50);
 
         AuthResponse authData = AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
+                .accessToken(jwtService.generateToken(tk))
+                .refreshToken(jwtService.generateRefreshToken(tk))
                 .user(userDto)
                 .build();
 
-        saveSystemLog(tk, "LOGIN_SUCCESS", "Người dùng [" + tk.getTenDangNhap() + "] đã đăng nhập thành công.");
-
+        saveSystemLog(tk, "LOGIN_SUCCESS", "Đăng nhập thành công.");
         return ApiResponse.success("Đăng nhập thành công!", authData);
-    }
-
-    private void saveSystemLog(TaiKhoan taiKhoan, String hanhDong, String moTa) {
-        try {
-            NhatKyHeThong sysLog = new NhatKyHeThong();
-            sysLog.setTaiKhoan(taiKhoan);
-            sysLog.setHanhDong(hanhDong);
-            sysLog.setMoTa(moTa);
-            sysLog.setDiaChiIp("127.0.0.1");
-
-            nhatKyHeThongRepository.save(sysLog);
-        } catch (Exception e) {
-            System.err.println("Lỗi lưu nhật ký hệ thống ngầm: " + e.getMessage());
-        }
     }
 
     @Override
     public ApiResponse<ResetPasswordResponse> forgotPassword(String email) {
-        // Kiểm tra xem Email có tồn tại trong hệ thống không
-        TaiKhoan taiKhoan = taiKhoanRepository.findByEmail(email).orElse(null);
+        TaiKhoan tk = taiKhoanRepository.findByEmail(email).orElse(null);
+        if (tk == null) return ApiResponse.error(404, AuthMessage.EMAIL_NOT_FOUND.getMessage());
 
-        if (taiKhoan == null) {
-            return ApiResponse.error(404, AuthMessage.EMAIL_NOT_FOUND.getMessage());
-        }
-
-        // Tạo mã OTP
         String otp = String.valueOf((int)((Math.random() * 899999) + 100000));
-
-        // Lưu thông tin vào bảng QuenMatKhau
         QuenMatKhau qmk = new QuenMatKhau();
         qmk.setEmail(email);
         qmk.setOtpCode(otp);
         qmk.setThoiGianHetHan(LocalDateTime.now().plusMinutes(5));
         qmk.setDaSuDung(false);
-        qmk.setTaiKhoan(taiKhoan);
-
+        qmk.setTaiKhoan(tk);
         quenMatKhauRepository.save(qmk);
 
-        // Gửi Mail
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(emailSender);
-            message.setTo(email);
-            message.setSubject("MÃ XÁC THỰC QUÊN MẬT KHẨU");
-            message.setText("Chào bạn,\n\nMã OTP để khôi phục mật khẩu của bạn là: " + otp +
-                    "\n\nMã này sẽ hết hạn sau 5 phút. Vui lòng không cung cấp mã này cho bất kỳ ai.");
-
-            mailSender.send(message);
-        } catch (Exception e) {
-            throw new RuntimeException("Lỗi khi gửi mail: " + e.getMessage());
-        }
-
-        // Trả về Response Object kèm thông tin thời gian hết hạn
-        ResetPasswordResponse responseData = ResetPasswordResponse.builder()
-                .email(email)
-                .thoiGianHetHan(qmk.getThoiGianHetHan())
-                .message(AuthMessage.OTP_SENT.getMessage())
-                .build();
-
-        return ApiResponse.success(AuthMessage.OTP_SENT.getMessage(), null);
+        emailService.sendOtpPasswordEmail(email, otp); // Gửi OTP bất đồng bộ
+        return ApiResponse.success(AuthMessage.OTP_SENT.getMessage(),
+                ResetPasswordResponse.builder().email(email).thoiGianHetHan(qmk.getThoiGianHetHan()).build());
     }
 
     @Override
     @Transactional
     public ApiResponse<String> resetPassword(ResetPasswordRequest request) {
-        // Tìm mã OTP mới nhất của email này và chưa được sử dụng
-        QuenMatKhau qmk = quenMatKhauRepository
-                .findFirstByEmailAndDaSuDungFalseOrderByThoiGianHetHanDesc(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Yêu cầu không hợp lệ hoặc đã hết hạn!"));
+        QuenMatKhau qmk = quenMatKhauRepository.findFirstByEmailAndDaSuDungFalseOrderByThoiGianHetHanDesc(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("Yêu cầu không hợp lệ!"));
 
-        // Kiểm tra mã OTP có khớp không
-        if (!qmk.getOtpCode().equals(request.getOtp())) {
-            return ApiResponse.error(400, "Mã OTP không chính xác!");
-        }
+        if (!qmk.getOtpCode().equals(request.getOtp()) || qmk.getThoiGianHetHan().isBefore(LocalDateTime.now()))
+            return ApiResponse.error(400, "Mã OTP không đúng hoặc hết hạn!");
 
-        // Kiểm tra mã có bị hết hạn không
-        if (qmk.getThoiGianHetHan().isBefore(LocalDateTime.now())) {
-            return ApiResponse.error(400, "Mã OTP đã hết hạn!");
-        }
-
-        // Cập nhật mật khẩu mới cho tài khoản
-        TaiKhoan taiKhoan = qmk.getTaiKhoan();
-        taiKhoan.setMatKhau(passwordEncoder.encode(request.getMatKhauMoi()));
-        taiKhoanRepository.save(taiKhoan);
-
-        // Đánh dấu mã OTP này đã được sử dụng
+        TaiKhoan tk = qmk.getTaiKhoan();
+        tk.setMatKhau(passwordEncoder.encode(request.getMatKhauMoi()));
+        taiKhoanRepository.save(tk);
         qmk.setDaSuDung(true);
         quenMatKhauRepository.save(qmk);
 
-        return ApiResponse.success("Đổi mật khẩu mới thành công! Vui lòng đăng nhập lại.", null);
+        return ApiResponse.success("Đổi mật khẩu thành công!", null);
     }
 
     @Override
     @Transactional
     public ApiResponse<UserManagementResponse> createAdminAccount(RegisterRequest request) {
-        // Kiểm tra trùng tên đăng nhập
-        if (taiKhoanRepository.existsByTenDangNhap(request.getTenDangNhap())) {
-            return ApiResponse.error(400, "Tên đăng nhập admin này đã tồn tại!");
-        }
+        if (taiKhoanRepository.existsByTenDangNhap(request.getTenDangNhap())) return ApiResponse.error(400, "Admin đã tồn tại!");
+        TaiKhoan admin = new TaiKhoan();
+        admin.setTenDangNhap(request.getTenDangNhap());
+        admin.setMatKhau(passwordEncoder.encode(request.getMatKhau()));
+        admin.setEmail(request.getEmail());
+        admin.setHoTen(request.getHoTen());
+        admin.setTrangThai(UserStatus.ACTIVE);
+        admin.setDoTinCayNguoiDung(50);
+        TaiKhoan saved = taiKhoanRepository.save(admin);
 
-        // Tạo thực thể TaiKhoan
-        TaiKhoan adminNew = new TaiKhoan();
-        adminNew.setTenDangNhap(request.getTenDangNhap());
-        adminNew.setMatKhau(passwordEncoder.encode(request.getMatKhau()));
-        adminNew.setEmail(request.getEmail());
-        adminNew.setHoTen(request.getHoTen());
-        adminNew.setTrangThai(UserStatus.ACTIVE);
-
-        TaiKhoan savedAdmin = taiKhoanRepository.save(adminNew);
-
-        // Gán quyền ROLE_ADMIN
-        VaiTro adminRole = vaiTroRepository.findByTenVaiTro(RoleConstant.ROLE_ADMIN)
-                .orElseThrow(() -> new RuntimeException("Lỗi: Không tìm thấy vai trò ADMIN."));
-
+        VaiTro adminRole = vaiTroRepository.findByTenVaiTro(RoleConstant.ROLE_ADMIN).orElseThrow();
         PhanQuyen pq = new PhanQuyen();
-        pq.setTaiKhoan(savedAdmin);
+        pq.setTaiKhoan(saved);
         pq.setVaiTro(adminRole);
         phanQuyenRepository.save(pq);
 
-        // Trả về thông tin
-        UserManagementResponse response = modelMapper.map(savedAdmin, UserManagementResponse.class);
-        response.setVaiTro(List.of(RoleConstant.ROLE_ADMIN));
-
-        return ApiResponse.success("Đã tạo tài khoản Admin thành công!", response);
+        UserManagementResponse res = modelMapper.map(saved, UserManagementResponse.class);
+        res.setVaiTro(List.of(RoleConstant.ROLE_ADMIN));
+        return ApiResponse.success("Tạo Admin thành công!", res);
     }
 
     @Override
     public ApiResponse<AuthResponse> changePassword(ChangePasswordRequest request) {
-        // Tìm tài khoản trong DB
-        TaiKhoan taiKhoan = taiKhoanRepository.findByTenDangNhap(request.getTenDangNhap())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng!"));
-
-        // Kiểm tra mật khẩu cũ có khớp không
-        if (!passwordEncoder.matches(request.getMatKhauCu(), taiKhoan.getMatKhau())) {
-            return ApiResponse.error(400, "Mật khẩu cũ không chính xác!");
-        }
-
-        // Mã hóa mật khẩu mới và cập nhật
-        taiKhoan.setMatKhau(passwordEncoder.encode(request.getMatKhauMoi()));
-        taiKhoanRepository.save(taiKhoan);
-
+        TaiKhoan tk = taiKhoanRepository.findByTenDangNhap(request.getTenDangNhap()).orElseThrow();
+        if (!passwordEncoder.matches(request.getMatKhauCu(), tk.getMatKhau())) return ApiResponse.error(400, "Sai mật khẩu cũ!");
+        tk.setMatKhau(passwordEncoder.encode(request.getMatKhauMoi()));
+        taiKhoanRepository.save(tk);
         return ApiResponse.success("Đổi mật khẩu thành công!", null);
     }
 
     @Override
     public ApiResponse<AuthResponse> refreshToken(String refreshToken) {
         try {
-            // Lấy username từ Refresh Token
             String username = jwtService.extractUsername(refreshToken);
+            var user = taiKhoanRepository.findByTenDangNhap(username).orElseThrow();
+            if (!jwtService.isTokenExpired(refreshToken)) {
+                List<String> roles = user.getDanhSachPhanQuyen().stream().map(pq -> pq.getVaiTro().getTenVaiTro()).collect(Collectors.toList());
+                UserManagementResponse userDto = modelMapper.map(user, UserManagementResponse.class);
+                userDto.setVaiTro(roles);
 
-            if (username != null) {
-                var user = taiKhoanRepository.findByTenDangNhap(username)
-                        .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
-
-                // Kiểm tra Refresh Token còn hạn không
-                if (!jwtService.isTokenExpired(refreshToken)) {
-                    // Tạo Access Token mới
-                    String newAccessToken = jwtService.generateToken(user);
-
-                    // Tạo UserResponse
-                    UserManagementResponse userDto = UserManagementResponse.builder()
-                            .taiKhoanId(user.getTaiKhoanId())
-                            .tenDangNhap(user.getTenDangNhap())
-                            .email(user.getEmail())
-                            .hoTen(user.getHoTen())
-                            .soDienThoai(user.getSoDienThoai())
-                            .vaiTro(user.getDanhSachPhanQuyen().stream()
-                                    .map(quyen -> quyen.getPhanQuyenId().toString())
-                                    .toList())
-                            .build();
-
-                    // Trả về AuthResponse
-                    AuthResponse response = AuthResponse.builder()
-                            .accessToken(newAccessToken)
-                            .refreshToken(refreshToken)
-                            .user(userDto)
-                            .build();
-
-                    return ApiResponse.success("Làm mới Token thành công", response);
-                }
+                return ApiResponse.success("Làm mới Token thành công", AuthResponse.builder()
+                        .accessToken(jwtService.generateToken(user)).refreshToken(refreshToken).user(userDto).build());
             }
-        } catch (Exception e) {
-            System.out.println("Lỗi Refresh Token: " + e.getMessage());
-            return ApiResponse.error(401, "Refresh Token không hợp lệ hoặc đã hết hạn!");
-        }
-        return ApiResponse.error(401, "Không thể làm mới Token");
+        } catch (Exception e) { return ApiResponse.error(401, "Refresh Token không hợp lệ!"); }
+        return ApiResponse.error(401, "Lỗi Refresh Token");
     }
 
     @Override
     public ApiResponse<Void> logout(String token) {
+        return ApiResponse.success("Đăng xuất thành công", null);
+    }
+
+    private void saveSystemLog(TaiKhoan tk, String hanhDong, String moTa) {
         try {
-            String pureToken = token.startsWith("Bearer ") ? token.substring(7) : token;
-
-            String username = jwtService.extractUsername(pureToken);
-
-            return ApiResponse.success("Tạm biệt " + username, null);
-        } catch (ExpiredJwtException e) {
-            return ApiResponse.success("Đăng xuất thành công (Token đã hết hạn trước đó)", null);
-        } catch (Exception e) {
-            return ApiResponse.error(400, "Lỗi đăng xuất");
-        }
+            NhatKyHeThong log = new NhatKyHeThong();
+            log.setTaiKhoan(tk); log.setHanhDong(hanhDong); log.setMoTa(moTa); log.setDiaChiIp("127.0.0.1");
+            nhatKyHeThongRepository.save(log);
+        } catch (Exception e) { System.err.println("Lỗi lưu log: " + e.getMessage()); }
     }
 }

@@ -66,6 +66,7 @@ public class UserManagementServiceImpl implements UserManagementService {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản để xóa"));
 
         user.setTrangThai(UserStatus.INACTIVE);
+        user.setDoTinCayNguoiDung(0);
         taiKhoanRepository.save(user);
 
         System.out.println("Đã xóa tài khoản ID: " + id);
@@ -81,6 +82,7 @@ public class UserManagementServiceImpl implements UserManagementService {
         user.setTrangThai(UserStatus.LOCKED);
 
         taiKhoanRepository.save(user);
+        System.out.println("[Admin-Action] Đã khóa tài khoản: " + user.getTenDangNhap() + " (Điểm uy tín về 0)");
     }
 
     @Override
@@ -90,6 +92,9 @@ public class UserManagementServiceImpl implements UserManagementService {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản người dùng"));
 
         user.setDoTinCayNguoiDung(10);
+        user.setTrangThai(UserStatus.ACTIVE);
+
         taiKhoanRepository.save(user);
+        System.out.println("[Admin-Action] Đã mở khóa tài khoản: " + user.getTenDangNhap() + " (Điểm khôi phục: 10)");
     }
 }

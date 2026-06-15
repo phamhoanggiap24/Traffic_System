@@ -213,7 +213,7 @@ public class IncidentReportServiceImpl implements IncidentReportService {
 
         entity.setThoiGianBaoCao(LocalDateTime.now());
         entity.setDoTinCayBaoCao(50);
-        entity.setTrangThai(ReportStatus.CHO_XAC_MINH);
+        entity.setTrangThai(ReportStatus.CHO_XAC_MINH); // Mặc định ban đầu là chờ duyệt
 
         if (request.getTaiKhoanId() != null) {
             TaiKhoan user = taiKhoanRepository.findById(request.getTaiKhoanId()).orElse(null);
@@ -224,25 +224,36 @@ public class IncidentReportServiceImpl implements IncidentReportService {
                 .orElseThrow(() -> new RuntimeException("Loại sự cố không tồn tại"));
         entity.setLoaiSuCo(loaiThat);
 
+        boolean isAutoMerged = false;
+
         try {
+            // Lấy dữ liệu dòng chảy giao thông thời gian thực từ TomTom API
             var realTimeData = trafficService.getTrafficFlow(entity.getViDo(), entity.getKinhDo());
             if (realTimeData != null && realTimeData.getFreeFlowSpeed() > 0) {
                 double speedRatio = (double) realTimeData.getCurrentSpeed() / realTimeData.getFreeFlowSpeed();
-                if (loaiThat.getLoaiSuCoId() == 1) {
-                    if (speedRatio < 0.4) {
-                        entity.setTrangThai(ReportStatus.DA_XAC_MINH);
-                        entity.setDoTinCayBaoCao(50);
-                        entity.setThoiGianXacMinh(LocalDateTime.now());
 
-                        handleMergeIncident(entity);
+                // 1. KỊCH BẢN DUYỆT TỰ ĐỘNG: Tốc độ xe giảm sâu dưới 40% (Áp dụng cho tất cả loại sự cố)
+                if (speedRatio < 0.4) {
+                    entity.setTrangThai(ReportStatus.DA_XAC_MINH);
+                    entity.setDoTinCayBaoCao(50);
+                    entity.setThoiGianXacMinh(LocalDateTime.now());
 
-                        if (entity.getTrangThai() == ReportStatus.DA_XAC_MINH && entity.getTaiKhoan() != null && entity.getTaiKhoan().getDoTinCayNguoiDung() < 50) {
-                            entity.getTaiKhoan().setDoTinCayNguoiDung(entity.getTaiKhoan().getDoTinCayNguoiDung() + 1);
-                        }
-                    } else if (speedRatio > 0.8) {
-                        entity.setTrangThai(ReportStatus.NGHI_VAN);
-                        entity.setDoTinCayBaoCao(10);
+                    // Kích hoạt tự động gộp nếu trùng vị trí bán kính 50m ngoài bản đồ công khai
+                    isAutoMerged = handleMergeIncident(entity);
+
+                    // Tăng 1 điểm uy tín cho người dùng vì đã báo cáo chính xác thực địa
+                    if (entity.getTrangThai() == ReportStatus.DA_XAC_MINH && entity.getTaiKhoan() != null && entity.getTaiKhoan().getDoTinCayNguoiDung() < 50) {
+                        entity.getTaiKhoan().setDoTinCayNguoiDung(entity.getTaiKhoan().getDoTinCayNguoiDung() + 1);
                     }
+                }
+                // 2. KỊCH BẢN HẠ UY TÍN/NGHI VẤN: Đường thông thoáng > 80% tốc độ tự do (Áp dụng cho tất cả loại sự cố)
+                else if (speedRatio > 0.8) {
+                    // Hệ thống nghi ngờ tin giả vì dòng xe vẫn lưu thông rất mượt mà
+                    entity.setTrangThai(ReportStatus.NGHI_VAN);
+                    entity.setDoTinCayBaoCao(10); // Hạ thấp độ tin cậy của báo cáo
+
+                    System.out.println("[TomTom-Check] Phát hiện nghi vấn tin giả! Loại sự cố: ["
+                            + loaiThat.getTenLoai() + "], Vận tốc dòng xe bình thường (Tỷ lệ: " + speedRatio + ")");
                 }
             }
         } catch (Exception e) {
@@ -250,6 +261,44 @@ public class IncidentReportServiceImpl implements IncidentReportService {
         }
 
         BaoCaoSuCo saved = baoCaoSuCoRepository.save(entity);
+        TaiKhoan user = saved.getTaiKhoan();
+
+        // LUỒNG TỰ ĐỘNG GỬI EMAIL PHẢN HỒI KHI ĐƯỢC HỆ THỐNG XÁC THỰC THÀNH CÔNG (CHỈ GỬI KHI ĐÃ XÁC MINH)
+        if (saved.getTrangThai() == ReportStatus.DA_XAC_MINH && user != null && user.getEmail() != null && !user.getEmail().trim().isEmpty()) {
+            try {
+                double lat = saved.getViDo();
+                double lng = saved.getKinhDo();
+                String tenDuongXacThuc = trafficService.getStreetName(lat, lng);
+
+                if (tenDuongXacThuc == null || tenDuongXacThuc.trim().isEmpty()) {
+                    tenDuongXacThuc = "Vị trí đã ghim trên hệ thống";
+                }
+
+                ReportResponse emailPayload = ReportResponse.builder()
+                        .baoCaoId(saved.getBaoCaoId())
+                        .moTa(saved.getMoTa())
+                        .viDo(saved.getViDo())
+                        .kinhDo(saved.getKinhDo())
+                        .tenDangNhap(user.getTenDangNhap())
+                        .tenLoaiSuCo(saved.getLoaiSuCo() != null ? saved.getLoaiSuCo().getTenLoai() : "Sự cố giao thông")
+                        .trangThai(saved.getTrangThai())
+                        .thoiGianBaoCao(saved.getThoiGianBaoCao())
+                        .build();
+
+                if (isAutoMerged) {
+                    emailPayload.setMoTa(saved.getMoTa() + " (Hệ thống đã tự động xác minh dựa trên phân tích lưu lượng giao thông thực tế và tiến hành gộp báo cáo này vào sự cố lân cận trong bán kính 50m).");
+                } else {
+                    emailPayload.setMoTa(saved.getMoTa() + " (Báo cáo đã được hệ thống tự động kiểm tra và phê duyệt thành công dựa trên dữ liệu lưu thông thực tế tại khu vực).");
+                }
+
+                System.out.println("[Auto-Email] Kích hoạt bắn mail tự động duyệt cho sự cố [" + emailPayload.getTenLoaiSuCo() + "] tới: " + user.getEmail());
+                emailService.sendTrafficIncidentAlert(user.getEmail(), emailPayload, tenDuongXacThuc);
+
+            } catch (Exception e) {
+                System.err.println("Lỗi luồng đóng gói dữ liệu gửi mail tự động tổng hợp: " + e.getMessage());
+            }
+        }
+
         return mapToDTO(saved);
     }
 
@@ -339,16 +388,18 @@ public class IncidentReportServiceImpl implements IncidentReportService {
             }
 
             // TỰ ĐỘNG GỬI EMAIL
-            if (targetStatus == ReportStatus.DA_XAC_MINH && !isMerged && user.getEmail() != null && !user.getEmail().isEmpty()) {
+            if (user.getEmail() != null && !user.getEmail().trim().isEmpty()) {
                 try {
-                    // Lấy tọa độ gốc
+                    // Gọi lấy tên đường từ tọa độ thực tế thông qua TomTom API
                     double lat = bc.getViDo();
                     double lng = bc.getKinhDo();
-
-                    // Gọi lấy tên đường
                     String tenDuongXacThuc = trafficService.getStreetName(lat, lng);
-                    System.out.println("[Admin-Duyet] Tên đường dịch được từ tọa độ chuẩn: " + tenDuongXacThuc);
 
+                    if (tenDuongXacThuc == null || tenDuongXacThuc.trim().isEmpty()) {
+                        tenDuongXacThuc = "Vị trí đã ghim trên hệ thống";
+                    }
+
+                    // Chuẩn bị payload DTO chuyển sang Mail Service
                     ReportResponse emailPayload = ReportResponse.builder()
                             .baoCaoId(bc.getBaoCaoId())
                             .moTa(bc.getMoTa())
@@ -359,9 +410,30 @@ public class IncidentReportServiceImpl implements IncidentReportService {
                             .trangThai(bc.getTrangThai())
                             .thoiGianBaoCao(bc.getThoiGianBaoCao())
                             .build();
-                    emailService.sendTrafficIncidentAlert(user.getEmail(), emailPayload, tenDuongXacThuc);
+
+                    // Tùy biến tiêu đề và nội dung động dựa theo trạng thái xử lý của Admin
+                    if (targetStatus == ReportStatus.DA_XAC_MINH) {
+                        if (isMerged) {
+                            emailPayload.setMoTa(bc.getMoTa() + " (Hệ thống đã tự động gộp báo cáo này vào sự cố tương tự đang diễn ra trong phạm vi 50m).");
+                        }
+                        System.out.println("[Email-Trigger] Kích hoạt gửi thư duyệt báo cáo thành công tới: " + user.getEmail());
+                        emailService.sendTrafficIncidentAlert(user.getEmail(), emailPayload, tenDuongXacThuc);
+                    }
+                    else if (targetStatus == ReportStatus.SAI_SU_THAT) {
+                        // Tạo một tiêu đề/nội dung cảnh cáo tin giả gửi sang mail
+                        System.out.println("[Email-Trigger] Kích hoạt gửi thư TỪ CHỐI (Tin giả) tới: " + user.getEmail());
+
+                        // Để tận dụng hàm mẫu HTML có sẵn, ta cập nhật tạm thuộc tính hiển thị loại sự cố thành tiêu đề cảnh báo
+                        emailPayload.setTenLoaiSuCo(bc.getLoaiSuCo().getTenLoai() + " (BỊ TỪ CHỐI)");
+                        if (emailPayload.getMoTa() == null || emailPayload.getMoTa().isEmpty()) {
+                            emailPayload.setMoTa("Không có mô tả.");
+                        }
+                        emailPayload.setMoTa(emailPayload.getMoTa() + " - [Lý do từ chối: Xác định thông tin sai sự thật].");
+
+                        emailService.sendTrafficIncidentAlert(user.getEmail(), emailPayload, tenDuongXacThuc);
+                    }
                 } catch (Exception e) {
-                    System.err.println("Lỗi kích hoạt luồng gửi mail: " + e.getMessage());
+                    System.err.println("Lỗi nghiêm trọng trong luồng đóng gói dữ liệu gửi mail: " + e.getMessage());
                 }
             }
         }

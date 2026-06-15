@@ -127,8 +127,15 @@ const ReportList = ({ setActiveTab }) => {
   }, [searchUser, selectedLoai, selectedStatus, filterDate, dynamicPageSize]);
 
   useEffect(() => {
-    loadReports();
-  }, [loadReports]);
+    const autoRefreshInterval = setInterval(() => {
+      if (!loading && !isProcessing) {
+        console.log("Hệ thống tự động làm mới danh sách báo cáo sự cố...");
+        loadReports();
+      }
+    }, 5000);
+
+    return () => clearInterval(autoRefreshInterval);
+  }, [loadReports, loading, isProcessing]);
 
   // XỬ LÝ DUYỆT / TỪ CHỐI BÁO CÁO
   const handleVerify = async (id, trangThaiMoi) => {
