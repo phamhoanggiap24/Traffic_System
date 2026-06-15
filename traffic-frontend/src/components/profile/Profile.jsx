@@ -13,8 +13,13 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [loading, setLoading] = useState(false);
 
+  // BỔ SUNG STATE: Để lưu trữ thông tin "tươi" vừa cập nhật từ Database
+  const [liveProfile, setLiveProfile] = useState(null);
+
+  // VÒNG ĐỜI KHI MỞ MODAL PROFILE
   useEffect(() => {
     if (isOpen && currentUser) {
+      // 1. Gán dữ liệu form cơ bản như cũ
       setFormData({
         hoTen: currentUser.hoTen || '',
         soDienThoai: currentUser.soDienThoai || ''
@@ -22,15 +27,37 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
       setMessage({ type: '', text: '' });
       setActiveTab('info');
       setPasswordData({ matKhauCu: '', matKhauMoi: '', confirmPassword: '' });
+
+      // 2. GỌI API LẤY ĐIỂM TIN CẬY MỚI NHẤT TỪ DATABASE (REAL-TIME)
+      const fetchFreshProfile = async () => {
+        try {
+          const res = await api.get('/profile/me'); // Đường dẫn API lấy thông tin cá nhân ở Backend
+          if (res.data && res.data.status === 200) {
+            setLiveProfile(res.data.data); // Lưu dữ liệu mới nhất (có điểm số thật) vào State
+
+            // Đồng bộ ngược lại cho form nếu thông tin dưới DB có thay đổi
+            setFormData({
+              hoTen: res.data.data.hoTen || '',
+              soDienThoai: res.data.data.soDienThoai || ''
+            });
+          }
+        } catch (err) {
+          console.error("Không thể làm mới điểm số uy tín:", err);
+          // Nếu API lỗi, fallback dùng tạm dữ liệu currentUser ban đầu
+          setLiveProfile(currentUser);
+        }
+      };
+
+      fetchFreshProfile();
     }
   }, [isOpen, currentUser]);
 
-  // Xác định tài khoản có phải là Admin không
-  const isAdminUser = currentUser?.vaiTro === 'ROLE_ADMIN' || currentUser?.vaiTro?.toString().includes('ADMIN');
+  // Xác định tài khoản có phải là Admin không (Sử dụng dữ liệu live nếu có)
+  const userForCheck = liveProfile || currentUser;
+  const isAdminUser = userForCheck?.vaiTro === 'ROLE_ADMIN' || userForCheck?.vaiTro?.toString().includes('ADMIN');
 
-  // KIỂM TRA ĐỊA CHỈ SAI TỪ TRÊN XUỐNG DƯỚI
+  // HÀM KIỂM TRA ĐỊA CHỈ HỢP LỆ
   const validateFields = (currentData) => {
-    // Kiểm tra Họ tên
     const tenTrimmed = currentData.hoTen.trim();
     if (tenTrimmed.length < 2 || tenTrimmed.length > 50) {
       return 'Họ và tên phải có độ dài từ 2 đến 50 ký tự!';
@@ -40,7 +67,6 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
       return 'Họ và tên không được chứa số hoặc ký tự đặc biệt!';
     }
 
-    // Kiểm tra Số điện thoại
     if (currentData.soDienThoai && currentData.soDienThoai.trim() !== '') {
       const phoneTrimmed = currentData.soDienThoai.trim();
       const phoneRegex = /^(03|05|07|08|09)\d{8}$/;
@@ -48,21 +74,16 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
         return 'Số điện thoại phải bắt đầu bằng 03, 05, 07, 08, 09 và gồm đúng 10 chữ số!';
       }
     }
-
     return null;
   };
 
-  // XỬ LÝ KHI NGƯỜI DÙNG ĐANG GÕ VÀO CÁC Ô INPUT
   const handleInputChange = (fieldName, value) => {
     const updatedData = { ...formData, [fieldName]: value };
     setFormData(updatedData);
 
     const errorMessage = validateFields(updatedData);
-
     if (!errorMessage) {
-      if (message.type === 'error') {
-        setMessage({ type: '', text: '' });
-      }
+      if (message.type === 'error') setMessage({ type: '', text: '' });
     } else {
       setMessage({ type: 'error', text: errorMessage });
     }
@@ -91,9 +112,10 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
       if (res.data && res.data.status === 200) {
         setMessage({ type: 'success', text: 'Cập nhật thông tin thành công!' });
 
+        // Đồng bộ dữ liệu ra bên ngoài hệ thống cho các component khác cùng biết
         if (onUserUpdate) {
           onUserUpdate({
-            ...currentUser,
+            ...userForCheck,
             hoTen: formData.hoTen.trim(),
             soDienThoai: formData.soDienThoai.trim()
           });
@@ -121,7 +143,7 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
 
     try {
       const res = await api.post('/profile/change-password', {
-        tenDangNhap: currentUser?.tenDangNhap,
+        tenDangNhap: userForCheck?.tenDangNhap,
         matKhauCu: passwordData.matKhauCu,
         matKhauMoi: passwordData.matKhauMoi
       });
@@ -174,14 +196,14 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
             <form onSubmit={handleUpdateInfo} className="info-tab-content">
               <div className="info-group">
                 <label><User size={14} /> Tên đăng nhập</label>
-                <input type="text" value={currentUser?.tenDangNhap || 'N/A'} disabled />
+                <input type="text" value={userForCheck?.tenDangNhap || 'N/A'} disabled />
               </div>
 
               <div className="info-group">
                 <label><Mail size={14} /> Địa chỉ Email</label>
                 <input
                   type="text"
-                  value={currentUser?.email || 'N/A'}
+                  value={userForCheck?.email || 'N/A'}
                   disabled
                 />
               </div>
@@ -195,6 +217,7 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
                 />
               </div>
 
+              {/* 🌟 ĐÃ ĐỔI: Sử dụng điểm uy tín từ "liveProfile" đọc trực tiếp tại DB */}
               <div className="info-group">
                 <label><Award size={14} /> Độ tin cậy</label>
                 <input
@@ -202,14 +225,14 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
                   value={
                     isAdminUser
                       ? '(N/A)'
-                      : `${currentUser?.doTinCayNguoiDung ?? 50}/50`
+                      : `${userForCheck?.doTinCayNguoiDung ?? 50}/50`
                   }
                   disabled
                   style={{
                     fontWeight: '600',
                     color: isAdminUser
                       ? '#64748b'
-                      : (currentUser?.doTinCayNguoiDung >= 40 ? '#10b981' : currentUser?.doTinCayNguoiDung >= 20 ? '#f59e0b' : '#ef4444'),
+                      : (userForCheck?.doTinCayNguoiDung >= 40 ? '#10b981' : userForCheck?.doTinCayNguoiDung >= 20 ? '#f59e0b' : '#ef4444'),
                     background: '#f8fafc'
                   }}
                 />

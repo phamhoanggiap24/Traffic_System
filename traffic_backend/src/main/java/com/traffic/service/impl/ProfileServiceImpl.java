@@ -20,6 +20,21 @@ public class ProfileServiceImpl implements ProfileService {
     private PasswordEncoder passwordEncoder;
 
     @Override
+    public ApiResponse<TaiKhoan> getProfileInfo(String username) {
+        try {
+            TaiKhoan tk = taiKhoanRepository.findByTenDangNhap(username)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản"));
+
+            // Xóa mật khẩu trước khi gửi về Client để đảm bảo bảo mật
+            tk.setMatKhau(null);
+
+            return new ApiResponse<>(200, "Lấy thông tin tài khoản thành công!", tk);
+        } catch (Exception e) {
+            return new ApiResponse<>(500, "Lỗi: " + e.getMessage(), null);
+        }
+    }
+
+    @Override
     public ApiResponse<String> doiMatKhau(String username, ChangePasswordRequest request) {
         TaiKhoan tk = taiKhoanRepository.findByTenDangNhap(username)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản"));
