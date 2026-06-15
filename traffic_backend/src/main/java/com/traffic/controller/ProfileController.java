@@ -24,12 +24,20 @@ public class ProfileController {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication == null || !authentication.isAuthenticated()
-                || "anonymousUser".equals(authentication.getName())) {
+                || "anonymousUser".equals(authentication.getPrincipal())) {
             return ResponseEntity.status(401)
                     .body(new ApiResponse<>(401, "Chưa đăng nhập hoặc token không hợp lệ", null));
         }
 
-        String currentUsername = authentication.getName();
+        String currentUsername;
+
+        Object principal = authentication.getPrincipal();
+
+        if (principal instanceof TaiKhoan taiKhoan) {
+            currentUsername = taiKhoan.getTenDangNhap();
+        } else {
+            currentUsername = authentication.getName();
+        }
 
         ApiResponse<TaiKhoan> response = profileService.getProfileInfo(currentUsername);
         return ResponseEntity.status(response.getStatus()).body(response);

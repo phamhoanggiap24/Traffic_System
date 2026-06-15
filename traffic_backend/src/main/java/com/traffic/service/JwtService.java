@@ -147,9 +147,12 @@ public class JwtService extends OncePerRequestFilter {
                     }
 
                     // TẠO ĐỐI TƯỢNG XÁC THỰC CHUẨN ĐẦY ĐỦ QUYỀN HẠN
-                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                            tk, null, authorities
-                    );
+                    UsernamePasswordAuthenticationToken authToken =
+                            new UsernamePasswordAuthenticationToken(
+                                    tk.getTenDangNhap(),
+                                    null,
+                                    authorities
+                            );
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                     // ĐẨY DANH TÍNH VÀO CONTEXT ĐỂ SPRING SECURITY ĐỒNG Ý CHO QUA
