@@ -89,6 +89,9 @@ public class JwtService extends OncePerRequestFilter {
 
         try {
             String username = extractUsername(jwt);
+            System.out.println("=== JWT DEBUG ===");
+            System.out.println("URI = " + request.getRequestURI());
+            System.out.println("USERNAME = " + username);
 
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 Optional<TaiKhoan> taiKhoanOpt = taiKhoanRepository.findProfileByTenDangNhap(username);
@@ -150,6 +153,8 @@ public class JwtService extends OncePerRequestFilter {
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                     // ĐẨY DANH TÍNH VÀO CONTEXT ĐỂ SPRING SECURITY ĐỒNG Ý CHO QUA
+                    System.out.println("AUTH SET = " + tk.getTenDangNhap());
+                    System.out.println("AUTHORITIES = " + authorities);
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
