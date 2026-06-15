@@ -52,9 +52,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
 
-                        // 🌟 ĐÃ CHỈNH: Cho phép tất cả tài khoản đã Login đi qua tầng Security để vào xử lý sâu trong Controller
-                        .requestMatchers("/api/profile/me").authenticated()
-                        .requestMatchers("/api/profile/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN", "USER", "ADMIN")
+                        .requestMatchers("/api/profile/**").authenticated()
 
                         .requestMatchers("/api/admin/**").hasAnyAuthority("ROLE_ADMIN", "ADMIN")
                         .requestMatchers("/api/traffic/**").authenticated()
