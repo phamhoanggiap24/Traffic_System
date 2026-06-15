@@ -69,7 +69,6 @@ const IncidentPopupContent = ({ data, userRole, fetchAddress, handleAdminAction 
   const reportTime = data.thoiGianBaoCao ? new Date(data.thoiGianBaoCao).getTime() : new Date().getTime();
   const currentTime = new Date().getTime();
 
-  // ĐỒNG BỘ LOGIC THỜI GIAN HẾT HẠN TRÊN POPUP VỚI BACKEND
   let expireMinutes = 60;
   if (data.loaiSuCoId === 1 || data.loaiSuCoId === 2) {
     expireMinutes = 30;
@@ -208,12 +207,13 @@ const TrafficMap = () => {
   const mapRef = useRef();
   const markerRef = useRef(null);
 
-  const fetchIncidents = async () => {
+  // CHUYỂN THÀNH CALLBACK ĐỂ TRÁNH TRÙNG LẶP ĐỊNH NGHĨA KHI RE-RUN TIMEOUT
+  const fetchIncidents = useCallback(async () => {
     try {
       const res = await api.get('/report/public/markers');
       if (res.data?.data) setIncidents(res.data.data);
     } catch (err) { console.error("Lỗi tải markers:", err); }
-  };
+  }, []);
 
   const calculateAndDrawRoutes = async (start, end) => {
     if (!start || !end) return;
@@ -384,7 +384,27 @@ const TrafficMap = () => {
     } catch (error) { console.error("Lỗi tìm kiếm:", error); }
   };
 
-  useEffect(() => { fetchIncidents(); }, []);
+  /* --- THAY THẾ EFFECT TẢI MARKERS CŨ THÀNH POLLING THÔNG MINH 5 GIÂY --- */
+  useEffect(() => {
+    let timerId;
+
+    const startPolling = async () => {
+      // Chỉ kích hoạt gọi API nếu người dùng đang trực tiếp nhìn vào Tab ứng dụng
+      if (document.visibilityState === 'visible') {
+        await fetchIncidents();
+      }
+      // Đợi API chạy xong (dù thành công hay lỗi) mới tiếp tục hẹn giờ 5 giây cho chu kỳ tiếp theo
+      timerId = setTimeout(startPolling, 5000);
+    };
+
+    // Chạy lần đầu tiên lập tức khi mở app
+    startPolling();
+
+    // Hủy bỏ bộ hẹn giờ khi đóng bản đồ để không hao tốn tài nguyên chạy ngầm
+    return () => {
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [fetchIncidents]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -397,7 +417,6 @@ const TrafficMap = () => {
     if (selectedPoint && markerRef.current) { markerRef.current.openPopup(); }
   }, [selectedPoint]);
 
-  // SỬA LỖI POPUP CHỒNG CHÉO: Điều khiển chỉ mở 1 popup của tuyến đường đang active
   useEffect(() => {
     if (routesData.length > 0 && polylineRefs.current[activeRouteIndex]) {
       const activePolyline = polylineRefs.current[activeRouteIndex];
@@ -634,28 +653,23 @@ const TrafficMap = () => {
           </Marker>
         )}
 
-        {/* SỬA LỖI DÀY ĐẶC MARKER: Thêm filter tính thời gian hết hạn ngầm để ẩn sự cố cũ */}
         {incidents
           .filter(i => {
-            // Loại bỏ các sự cố bị tác động trực tiếp
             if (['SAI_SU_THAT', 'AN_HIEN_THI', 'DA_XOA', 'QUA_HAN'].includes(i.trangThai)) return false;
 
-            // Tính toán thời gian hết hạn tự động cho các sự cố còn lại
             try {
               const rTime = new Date(i.thoiGianBaoCao).getTime();
               const cTime = new Date().getTime();
 
-              // 30 phút cho loại 1, 2 và 60 phút cho loại 3, 4
               let limitMinutes = 60;
               if (i.loaiSuCoId === 1 || i.loaiSuCoId === 2) {
                 limitMinutes = 30;
               }
               if ((cTime - rTime) > (limitMinutes * 60 * 1000)) {
-                return false; // Quá hạn tự động -> Loại bỏ khỏi Map
+                return false;
               }
             } catch (err) { return false; }
 
-            // Loại bỏ marker trùng với marker đang được focus xem riêng biệt bằng Admin
             if (focusIncident && i.baoCaoId === focusIncident.baoCaoId) return false;
 
             return true;
