@@ -48,15 +48,53 @@ const endIcon = new L.Icon({
   popupAnchor: [1, -34]
 });
 
+// Hàm format thời gian theo múi giờ Việt Nam khớp định dạng với danh sách quản trị
+const formatVietnameseDateTime = (dateTimeString) => {
+  if (!dateTimeString) return "Chưa xác định";
+  try {
+    const date = new Date(dateTimeString);
+    const formatter = new Intl.DateTimeFormat('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour12: false
+    });
+
+    const parts = formatter.formatToParts(date);
+    const hour = parts.find(p => p.type === 'hour').value;
+    const minute = parts.find(p => p.type === 'minute').value;
+    const second = parts.find(p => p.type === 'second').value;
+    const day = parts.find(p => p.type === 'day').value;
+    const month = parts.find(p => p.type === 'month').value;
+    const year = parts.find(p => p.type === 'year').value;
+
+    return `${hour}:${minute}:${second} ${day}/${month}/${year}`;
+  } catch (error) {
+    console.error("Lỗi định dạng ngày tháng:", error);
+    return "Chưa xác định";
+  }
+};
+
 const IncidentPopupContent = ({ data, userRole, fetchAddress, handleAdminAction }) => {
   const [address, setAddress] = useState("Đang xác định vị trí...");
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const isAdmin = userRole === 'ADMIN';
 
+  // Lắng nghe dữ liệu ngầm thay đổi để cập nhật giao diện popup tức thì
+  const [currentData, setCurrentData] = useState(data);
+
+  useEffect(() => {
+    setCurrentData(data);
+  }, [data]);
+
   useEffect(() => {
     let isMounted = true;
-    const lat = data.viDo || data.lat;
-    const lng = data.kinhDo || data.lng;
+    const lat = currentData.viDo || currentData.lat;
+    const lng = currentData.kinhDo || currentData.lng;
 
     if (lat && lng) {
       fetchAddress(lat, lng).then(res => {
@@ -64,21 +102,21 @@ const IncidentPopupContent = ({ data, userRole, fetchAddress, handleAdminAction 
       });
     }
     return () => { isMounted = false; };
-  }, [data, fetchAddress]);
+  }, [currentData, fetchAddress]);
 
-  const reportTime = data.thoiGianBaoCao ? new Date(data.thoiGianBaoCao).getTime() : new Date().getTime();
+  const reportTime = currentData.thoiGianBaoCao ? new Date(currentData.thoiGianBaoCao).getTime() : new Date().getTime();
   const currentTime = new Date().getTime();
 
   let expireMinutes = 60;
-  if (data.loaiSuCoId === 1 || data.loaiSuCoId === 2) {
+  if (currentData.loaiSuCoId === 1 || currentData.loaiSuCoId === 2) {
     expireMinutes = 30;
   }
   const isTimeOut = (currentTime - reportTime) > (expireMinutes * 60 * 1000);
-  const isExpired = (isTimeOut && (data.trangThai === 'CHO_XAC_MINH' || data.trangThai === 'NGHI_VAN')) || data.trangThai === 'QUA_HAN';
-  const isProcessed = data.trangThai === 'DA_XAC_MINH' || data.trangThai === 'SAI_SU_THAT';
-  const isHiddenFromMap = data.trangThai === 'AN_HIEN_THI';
+  const isExpired = (isTimeOut && (currentData.trangThai === 'CHO_XAC_MINH' || currentData.trangThai === 'NGHI_VAN')) || currentData.trangThai === 'QUA_HAN';
+  const isProcessed = currentData.trangThai === 'DA_XAC_MINH' || currentData.trangThai === 'SAI_SU_THAT';
+  const isHiddenFromMap = currentData.trangThai === 'AN_HIEN_THI';
 
-  const imageUrl = data.hinhAnhUrl ? `${api.defaults.baseURL || 'http://localhost:8080'}${data.hinhAnhUrl}` : null;
+  const imageUrl = currentData.hinhAnhUrl ? `${api.defaults.baseURL || 'http://localhost:8080'}${currentData.hinhAnhUrl}` : null;
 
   return (
     <div className="map-popup-wrapper">
@@ -97,18 +135,19 @@ const IncidentPopupContent = ({ data, userRole, fetchAddress, handleAdminAction 
           </div>
         ) : (
           <>
-            <p><strong>Loại sự cố:</strong> {data.tenLoaiSuCo || "Không xác định"}</p>
+            <p><strong>Loại sự cố:</strong> {currentData.tenLoaiSuCo || "Không xác định"}</p>
             {isAdmin && (
               <p><strong>Trạng thái hệ thống:</strong> {
-                data.trangThai === 'DA_XAC_MINH' ? "Tin thật" :
-                data.trangThai === 'SAI_SU_THAT' ? "Tin giả" :
-                data.trangThai === 'NGHI_VAN' ? "Nghi vấn" :
-                data.trangThai === 'AN_HIEN_THI' ? "Đã ẩn bản đồ" : "Chờ duyệt"
+                currentData.trangThai === 'DA_XAC_MINH' ? "Tin thật" :
+                currentData.trangThai === 'SAI_SU_THAT' ? "Tin giả" :
+                currentData.trangThai === 'NGHI_VAN' ? "Nghi vấn" :
+                currentData.trangThai === 'AN_HIEN_THI' ? "Đã ẩn bản đồ" : "Chờ duyệt"
               }</p>
             )}
-            <p><strong>Mô tả:</strong> {data.moTa || "Không có mô tả"}</p>
+            <p><strong>Mô tả:</strong> {currentData.moTa || "Không có mô tả"}</p>
             <p><strong>Vị trí:</strong> {address}</p>
-            <p><strong>Thời gian:</strong> {data.thoiGianHienThi ? data.thoiGianHienThi : "Vừa xong"}</p>
+            {/* Đã cập nhật chuyển sang hiển thị ngày giờ chuẩn Việt Nam */}
+            <p><strong>Thời gian:</strong> {formatVietnameseDateTime(currentData.thoiGianBaoCao)}</p>
 
             {imageUrl && (
               <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -131,21 +170,21 @@ const IncidentPopupContent = ({ data, userRole, fetchAddress, handleAdminAction 
         <div className="admin-popup-actions">
           {!isProcessed && !isHiddenFromMap ? (
             <div className="admin-action-buttons-group">
-              <button className="btn-map-approve" onClick={() => handleAdminAction(data.id || data.baoCaoId, 'approve')}>
+              <button className="btn-map-approve" onClick={() => handleAdminAction(currentData.id || currentData.baoCaoId, 'approve')}>
                 <CheckCircle size={14} /> Duyệt
               </button>
-              <button className="btn-map-reject" onClick={() => handleAdminAction(data.id || data.baoCaoId, 'reject')}>
+              <button className="btn-map-reject" onClick={() => handleAdminAction(currentData.id || currentData.baoCaoId, 'reject')}>
                 <XCircle size={14} /> Từ chối
               </button>
             </div>
           ) : isHiddenFromMap ? (
-            <button className="btn-map-delete-red" onClick={() => handleAdminAction(data.id || data.baoCaoId, 'delete')} style={{ margin: '0 auto' }}>
+            <button className="btn-map-delete-red" onClick={() => handleAdminAction(currentData.id || currentData.baoCaoId, 'delete')} style={{ margin: '0 auto' }}>
               <Trash2 size={14} /> Xóa khỏi danh sách
             </button>
           ) : (
             <button
               className="btn-map-remove-orange"
-              onClick={() => handleAdminAction(data.id || data.baoCaoId, 'removeFromMap')}
+              onClick={() => handleAdminAction(currentData.id || currentData.baoCaoId, 'removeFromMap')}
             >
               <EyeOff size={14} /> Gỡ khỏi bản đồ
             </button>
@@ -185,7 +224,7 @@ const TrafficMap = () => {
   const [, setTimeUpdate] = useState(0);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
 
-  const [activeInput,setActiveInput] = useState('start');
+  const [activeInput, setActiveInput] = useState('start');
   const activeInputRef = useRef('start');
 
   const updateActiveInput = (val) => {
@@ -208,7 +247,6 @@ const TrafficMap = () => {
   const mapRef = useRef();
   const markerRef = useRef(null);
 
-  // CHUYỂN THÀNH CALLBACK ĐỂ TRÁNH TRÙNG LẶP ĐỊNH NGHĨA KHI RE-RUN TIMEOUT
   const fetchIncidents = useCallback(async () => {
     try {
       const res = await api.get(`/report/public/markers?_t=${new Date().getTime()}`);
@@ -385,27 +423,30 @@ const TrafficMap = () => {
     } catch (error) { console.error("Lỗi tìm kiếm:", error); }
   };
 
-  /* --- THAY THẾ EFFECT TẢI MARKERS CŨ THÀNH POLLING THÔNG MINH 5 GIÂY --- */
   useEffect(() => {
     let timerId;
-
     const startPolling = async () => {
-      // Chỉ kích hoạt gọi API nếu người dùng đang trực tiếp nhìn vào Tab ứng dụng
       if (document.visibilityState === 'visible') {
         await fetchIncidents();
       }
-      // Đợi API chạy xong (dù thành công hay lỗi) mới tiếp tục hẹn giờ 5 giây cho chu kỳ tiếp theo
       timerId = setTimeout(startPolling, 5000);
     };
 
-    // Chạy lần đầu tiên lập tức khi mở app
     startPolling();
 
-    // Hủy bỏ bộ hẹn giờ khi đóng bản đồ để không hao tốn tài nguyên chạy ngầm
     return () => {
       if (timerId) clearTimeout(timerId);
     };
   }, [fetchIncidents]);
+
+  // Ra lệnh tự động định vị ngay khi MapContainer sẵn sàng ở luồng mount trang ban đầu
+  useEffect(() => {
+    if (mapRef.current) {
+      mapRef.current.locate({
+        enableHighAccuracy: true
+      });
+    }
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -501,14 +542,13 @@ const TrafficMap = () => {
       locationfound: async (e) => {
         const wrapped = e.latlng.wrap();
 
-        // NẾU LÀ LẦN ĐẦU MỞ APP: Chỉ chuyển tâm bản đồ về vị trí hiện tại, giữ nguyên mức zoom hiện tại
+        // Mặc định ban đầu: Di chuyển tâm về vị trí hiện tại của user, không sinh popup, giữ nguyên độ rộng zoom
         if (isFirstLoad) {
-          mapRef.current.panTo(wrapped); // Hoặc mapRef.current.flyTo(wrapped, mapRef.current.getZoom());
-          setIsFirstLoad(false); // Tắt cờ lần đầu tải trang đi
-          return; // Thoát hàm, không chạy logic tạo popup bên dưới
+          mapRef.current.panTo(wrapped);
+          setIsFirstLoad(false);
+          return;
         }
 
-        // LÔGIC KHI NGƯỜI DÙNG CHỦ ĐỘNG BẤM NÚT NAVIGATION (Vẫn giữ nguyên như cũ của bạn)
         try {
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${wrapped.lat}&lon=${wrapped.lng}&format=json&accept-language=vi`
@@ -543,9 +583,9 @@ const TrafficMap = () => {
   const handleLocate = () => {
     if (mapRef.current) {
       mapRef.current.locate({
-          setView: true,
-          maxZoom: 16,
-          enableHighAccuracy: true
+        setView: true,
+        maxZoom: 16,
+        enableHighAccuracy: true
       });
     }
   };
@@ -565,7 +605,7 @@ const TrafficMap = () => {
               onKeyDown={(e) => e.key === 'Enter' && handleSearchLocation(startSearch, 'start')}
             />
             <button onClick={() => handleSearchLocation(startSearch, 'start')} className="inner-search-btn">
-              <Search size={16}/>
+              <Search size={16} />
             </button>
             {suggestions.type === 'start' && suggestions.data.length > 0 && (
               <ul className="suggestion-list">
@@ -589,7 +629,7 @@ const TrafficMap = () => {
               onKeyDown={(e) => e.key === 'Enter' && handleSearchLocation(endSearch, 'end')}
             />
             <button onClick={() => handleSearchLocation(endSearch, 'end')} className="inner-search-btn">
-              <Search size={16}/>
+              <Search size={16} />
             </button>
             {suggestions.type === 'end' && suggestions.data.length > 0 && (
               <ul className="suggestion-list">
@@ -641,8 +681,8 @@ const TrafficMap = () => {
                   <div style={{ fontSize: '13px', minWidth: '180px' }}>
                     <strong style={{ color: isActive ? '#2563eb' : '#4b5563' }}>
                       Tuyến đường gợi ý {originalIndex + 1}:
-                    </strong><br/>
-                    Quãng đường dài khoảng: <b>{distanceKm} km</b><br/>
+                    </strong><br />
+                    Quãng đường dài khoảng: <b>{distanceKm} km</b><br />
                     Thời gian ước tính khoảng: <b style={{ color: isActive ? '#dc3545' : '#2563eb' }}>{durationMinutes} phút</b>
                   </div>
                 </Popup>
@@ -653,12 +693,12 @@ const TrafficMap = () => {
 
         {startPoint && (
           <Marker position={[startPoint.lat, startPoint.lng]} icon={startIcon}>
-            <Popup><strong>Điểm đi:</strong><br/>{startPoint.address}</Popup>
+            <Popup><strong>Điểm đi:</strong><br />{startPoint.address}</Popup>
           </Marker>
         )}
         {endPoint && (
           <Marker position={[endPoint.lat, endPoint.lng]} icon={endIcon}>
-            <Popup><strong>Điểm đến:</strong><br/>{endPoint.address}</Popup>
+            <Popup><strong>Điểm đến:</strong><br />{endPoint.address}</Popup>
           </Marker>
         )}
 
@@ -696,7 +736,9 @@ const TrafficMap = () => {
                 <Tooltip permanent direction="top" offset={[0, -10]} className="incident-label">
                   {incident.tenLoaiSuCo}
                 </Tooltip>
-                <Popup minWidth={250}>
+
+                {/* THAY ĐỔI CHÍNH TẠI ĐÂY: Thêm key kết hợp ID và TrangThai phản hồi để ép Leaflet vẽ lại ruột popup khi Admin duyệt ngầm */}
+                <Popup minWidth={250} key={`${incident.baoCaoId}-${incident.trangThai}`}>
                   <IncidentPopupContent
                     data={incident}
                     userRole={userRole}
@@ -706,7 +748,7 @@ const TrafficMap = () => {
                 </Popup>
               </Marker>
             );
-        })}
+          })}
 
         {userRole === 'ADMIN' && focusIncident && (
           <Marker
@@ -715,7 +757,8 @@ const TrafficMap = () => {
             zIndexOffset={1000}
             eventHandlers={{ add: (e) => e.target.openPopup() }}
           >
-            <Popup minWidth={250}>
+            {/* Thêm khóa key phá cache tương tự cho chế độ xem tiêu điểm Focus */}
+            <Popup minWidth={250} key={`${focusIncident.baoCaoId}-${focusIncident.trangThai}`}>
               <IncidentPopupContent
                 data={focusIncident}
                 userRole={userRole}
@@ -742,7 +785,7 @@ const TrafficMap = () => {
           </Marker>
         )}
       </MapContainer>
-      {showReportModal && ( <ReportForm selectedPoint={selectedPoint} onClose={() => { setShowReportModal(false); fetchIncidents(); }} /> )}
+      {showReportModal && (<ReportForm selectedPoint={selectedPoint} onClose={() => { setShowReportModal(false); fetchIncidents(); }} />)}
     </div>
   );
 };
