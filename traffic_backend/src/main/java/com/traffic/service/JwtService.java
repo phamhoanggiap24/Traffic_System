@@ -102,9 +102,8 @@ public class JwtService extends OncePerRequestFilter {
             if (taiKhoanOpt.isPresent()) {
                 TaiKhoan tk = taiKhoanOpt.get();
 
-                // Xác định quyền Admin an toàn không lo Lazy Loading lỗi
+                // 1. KIỂM TRA QUYỀN ADMIN (Bằng tên đăng nhập hoặc quét danh sách quyền)
                 boolean isAdmin = "admin".equalsIgnoreCase(tk.getTenDangNhap());
-
                 if (!isAdmin) {
                     try {
                         List<String> roles = tk.getDanhSachPhanQuyen().stream()
@@ -116,20 +115,30 @@ public class JwtService extends OncePerRequestFilter {
                     }
                 }
 
-                // CHẶN NGƯỜI DÙNG THƯỜNG (Nếu bị khóa hoặc điểm thấp)
+                // 2. CHẶN NGƯỜI DÙNG THƯỜNG (Sử dụng chính xác Enum UserStatus bạn gửi)
                 if (!isAdmin) {
-                    boolean isLockedByStatus = UserStatus.LOCKED.equals(tk.getTrangThai()) || "LOCKED".equals(String.valueOf(tk.getTrangThai()));
-                    boolean isLockedByPoint = (tk.getDoTinCayNguoiDung() != null && tk.getDoTinCayNguoiDung() < 5);
+                    boolean isLockedByStatus = false;
 
+                    if (tk.getTrangThai() != null) {
+                        // Kiểm tra nếu trạng thái bằng đúng Enum LOCKED hoặc chuỗi "LOCKED"
+                        isLockedByStatus = UserStatus.LOCKED.equals(tk.getTrangThai())
+                                || "LOCKED".equalsIgnoreCase(String.valueOf(tk.getTrangThai()));
+                    }
+
+                    // Kiểm tra điểm tin cậy (Null-safe)
+                    int diemTinCay = (tk.getDoTinCayNguoiDung() != null) ? tk.getDoTinCayNguoiDung() : 50;
+                    boolean isLockedByPoint = (diemTinCay < 5);
+
+                    // Nếu dính 1 trong 2 điều kiện thì chặn luôn
                     if (isLockedByStatus || isLockedByPoint) {
                         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                         response.setContentType("application/json;charset=UTF-8");
-                        response.getWriter().write("{\"status\": 403, \"message\": \"Tài khoản của bạn đã bị khóa!\"}");
+                        response.getWriter().write("{\"status\": 403, \"message\": \"Tài khoản của bạn đã bị khóa hoặc hạ điểm uy tín do vi phạm!\"}");
                         return;
                     }
                 }
 
-                // KIỂM TRA THỜI HẠN TOKEN
+                // 3. KIỂM TRA THỜI HẠN TOKEN
                 boolean isExpired = false;
                 try {
                     Date expiration = Jwts.parserBuilder()
@@ -146,17 +155,19 @@ public class JwtService extends OncePerRequestFilter {
                 if (!isExpired) {
                     List<SimpleGrantedAuthority> authorities = new ArrayList<>();
 
-                    // Nạp quyền an toàn cho hệ thống
                     if (isAdmin) {
-                        // Nếu là tài khoản Admin, gán thẳng quyền tránh lỗi Lazy Loading từ Database
                         authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
                     } else {
                         try {
                             authorities = tk.getDanhSachPhanQuyen().stream()
                                     .map(pq -> new SimpleGrantedAuthority(pq.getVaiTro().getTenVaiTro()))
                                     .collect(Collectors.toList());
+
+                            if (authorities.isEmpty()) {
+                                authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+                            }
                         } catch (Exception e) {
-                            // Mặc định quyền USER nếu lỗi nạp danh sách
+                            // Cứu cánh khi bị lỗi Lazy Loading Session
                             authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
                         }
                     }

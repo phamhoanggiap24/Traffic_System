@@ -1,5 +1,6 @@
 package com.traffic.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -9,18 +10,24 @@ import java.util.Properties;
 @Configuration
 public class MailConfig {
 
+    // Ưu tiên đọc từ biến môi trường Render, nếu không có sẽ lấy giá trị mặc định ở sau dấu hai chấm (:)
+    @Value("${MAIL_HOST:smtp.gmail.com}")
+    private String host;
+
+    @Value("${MAIL_PORT:587}")
+    private int port;
+
+    @Value("${MAIL_USERNAME:your-email@gmail.com}")
+    private String username;
+
+    @Value("${MAIL_PASSWORD:your-password}")
+    private String password;
+
     @Bean
     public JavaMailSender javaMailSender() {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
-
-        // Đọc biến từ môi trường Render (nếu có), nếu rỗng sẽ lấy giá trị mặc định của bạn
-        String host = System.getenv("MAIL_HOST") != null ? System.getenv("MAIL_HOST") : "smtp.gmail.com";
-        String portStr = System.getenv("MAIL_PORT") != null ? System.getenv("MAIL_PORT") : "587";
-        String username = System.getenv("MAIL_USERNAME") != null ? System.getenv("MAIL_USERNAME") : "your-email@gmail.com";
-        String password = System.getenv("MAIL_PASSWORD") != null ? System.getenv("MAIL_PASSWORD") : "your-password";
-
         mailSender.setHost(host);
-        mailSender.setPort(Integer.parseInt(portStr));
+        mailSender.setPort(port);
         mailSender.setUsername(username);
         mailSender.setPassword(password);
 
@@ -29,7 +36,9 @@ public class MailConfig {
         props.put("mail.smtp.auth", "true");
         props.put("mail.smtp.starttls.enable", "true");
         props.put("mail.smtp.starttls.required", "true");
-        props.put("mail.debug", "false");
+
+        // Bật true để khi deploy lên Render, nếu gửi lỗi nó sẽ in chi tiết log SMTP ra mục Logs cho bạn xem
+        props.put("mail.debug", "true");
 
         return mailSender;
     }
