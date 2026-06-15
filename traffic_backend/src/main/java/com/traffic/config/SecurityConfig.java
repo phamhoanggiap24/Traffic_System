@@ -1,6 +1,5 @@
 package com.traffic.config;
 
-import com.traffic.common.RoleConstant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,7 +9,6 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter; // Thêm dòng này
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -44,10 +42,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
 
-                        .requestMatchers("/api/profile/**").hasAnyAuthority(RoleConstant.ROLE_USER, RoleConstant.ROLE_ADMIN)
+                        .requestMatchers("/api/profile/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
 
                         // Yêu cầu token đối với các API chức năng để kích hoạt vòng quét trạng thái DB
-                        .requestMatchers("/api/admin/**").hasAuthority(RoleConstant.ROLE_ADMIN)
+                        .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
                         .requestMatchers("/api/traffic/**").authenticated()
                         .requestMatchers("/api/bao-cao/**").authenticated()
                         .anyRequest().authenticated()

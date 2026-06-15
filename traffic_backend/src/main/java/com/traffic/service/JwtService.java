@@ -87,12 +87,13 @@ public class JwtService extends OncePerRequestFilter {
             if (taiKhoanOpt.isPresent()) {
                 TaiKhoan tk = taiKhoanOpt.get();
 
-                // 1. Kiểm tra Admin (Sử dụng hằng số RoleConstant)
+                // 1. Kiểm tra Admin bằng username hoặc bảng phân quyền
                 boolean isAdmin = "admin".equalsIgnoreCase(tk.getTenDangNhap()) ||
-                        tk.getDanhSachPhanQuyen().stream()
-                                .anyMatch(pq -> pq.getVaiTro() != null && RoleConstant.ROLE_ADMIN.equals(pq.getVaiTro().getTenVaiTro()));
+                        (tk.getDanhSachPhanQuyen() != null && tk.getDanhSachPhanQuyen().stream()
+                                .anyMatch(pq -> pq.getVaiTro() != null &&
+                                        (RoleConstant.ROLE_ADMIN.equals(pq.getVaiTro().getTenVaiTro()) || "ADMIN".equalsIgnoreCase(pq.getVaiTro().getTenVaiTro()))));
 
-                // 2. Kiểm tra trạng thái tài khoản
+                // 2. Kiểm tra trạng thái khóa (Bỏ qua nếu là Admin)
                 if (!isAdmin) {
                     boolean isLocked = UserStatus.LOCKED.equals(tk.getTrangThai()) ||
                             (tk.getDoTinCayNguoiDung() != null && tk.getDoTinCayNguoiDung() < 5);
@@ -104,17 +105,33 @@ public class JwtService extends OncePerRequestFilter {
                     }
                 }
 
-                // 3. Nạp quyền (Sử dụng RoleConstant để đồng bộ)
-                List<SimpleGrantedAuthority> authorities = tk.getDanhSachPhanQuyen().stream()
-                        .map(pq -> new SimpleGrantedAuthority(pq.getVaiTro().getTenVaiTro()))
-                        .collect(Collectors.toList());
+                // 3. Nạp quyền bảo mật (Đã bọc null-safe tránh crash hệ thống)
+                List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+                try {
+                    if (tk.getDanhSachPhanQuyen() != null) {
+                        authorities = tk.getDanhSachPhanQuyen().stream()
+                                .filter(pq -> pq.getVaiTro() != null && pq.getVaiTro().getTenVaiTro() != null)
+                                .map(pq -> {
+                                    String role = pq.getVaiTro().getTenVaiTro();
+                                    // Tự động thêm tiền tố ROLE_ nếu DB chỉ lưu chữ "ADMIN"/"USER" ngắn gọn
+                                    if (!role.startsWith("ROLE_")) {
+                                        role = "ROLE_" + role.toUpperCase();
+                                    }
+                                    return new SimpleGrantedAuthority(role);
+                                })
+                                .collect(Collectors.toList());
+                    }
+                } catch (Exception e) {
+                    // Tránh sập luồng filter khi lỗi DB nạp chậm
+                }
 
+                // Nếu danh sách rỗng, mặc định gán ROLE_USER
                 if (authorities.isEmpty()) {
                     authorities.add(new SimpleGrantedAuthority(RoleConstant.ROLE_USER));
                 }
 
-                // Nếu là Admin, đảm bảo quyền Admin được nạp
-                if (isAdmin && authorities.stream().noneMatch(a -> a.getAuthority().equals(RoleConstant.ROLE_ADMIN))) {
+                // Đặc cách: Nếu tên đăng nhập là "admin", ép thêm quyền ROLE_ADMIN vào danh sách để không bao giờ bị 403
+                if (isAdmin && authorities.stream().noneMatch(a -> RoleConstant.ROLE_ADMIN.equals(a.getAuthority()))) {
                     authorities.add(new SimpleGrantedAuthority(RoleConstant.ROLE_ADMIN));
                 }
 
