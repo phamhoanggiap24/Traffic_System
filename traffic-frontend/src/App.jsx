@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import api from './api/axiosConfig'; // Đảm bảo đường dẫn tới file axiosConfig chính xác
 import Login from './components/auth/Login/Login';
 import Register from './components/auth/Register/Register';
 import ForgotPassword from './components/auth/ForgotPassword/ForgotPassword';
@@ -16,9 +17,33 @@ function App() {
   const [authView, setAuthView] = useState('login');
   const [activeTab, setActiveTab] = useState(localStorage.getItem('currentTab') || 'map');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // State dùng để kích hoạt Sidebar làm mới số đếm ngay khi duyệt hoặc xóa
   const [pendingRefreshTrigger, setPendingRefreshTrigger] = useState(0);
+
+  // 🌟 VÒNG QUÉT KIỂM TRA TRẠNG THÁI TOÀN HỆ THỐNG (BẤT KỂ ĐANG Ở TAB NÀO)
+  useEffect(() => {
+    // Nếu chưa đăng nhập hoặc không có user thì tuyệt đối không quét ngầm (Tránh lặp popup ở màn Login)
+    if (!user) return;
+
+    const checkAccountStatus = async () => {
+      try {
+        // Gửi request siêu nhẹ lên endpoint kiểm tra trạng thái bảo mật ở backend
+        await api.get('/profile/me');
+      } catch (error) {
+        console.error("Phát hiện tài khoản vi phạm hoặc hết hạn phiên làm việc ngầm:", error);
+        // Khi lỗi 403/401 xảy ra, Axios Interceptor sẽ tự động xử lý xóa localStorage và redirect về /login.
+      }
+    };
+
+    // 1. Chạy kiểm tra ngay lập tức khi người dùng vừa load trang hoặc chuyển tab
+    checkAccountStatus();
+
+    // 2. Thiết lập chạy ngầm định kỳ cứ mỗi 20 giây quét một lần (20000ms)
+    const intervalId = setInterval(checkAccountStatus, 20000);
+
+    // Dọn dẹp luồng chạy ngầm khi người dùng logout hoặc hủy component
+    return () => clearInterval(intervalId);
+  }, [user]); // Theo dõi trạng thái biến user
+
 
   useEffect(() => {
     localStorage.setItem('currentTab', activeTab);
@@ -44,6 +69,7 @@ function App() {
   const isAdmin = user?.vaiTro?.includes('ROLE_ADMIN') ||
                   user?.vaiTro?.toString().includes('ADMIN') ||
                   localStorage.getItem('role') === 'ADMIN';
+
   const handleLogout = () => {
     localStorage.clear();
     setUser(null);
@@ -71,7 +97,7 @@ function App() {
         setActiveTab={setActiveTab}
         onLogout={handleLogout}
         isOpen={sidebarOpen}
-        pendingRefreshTrigger={pendingRefreshTrigger} // Truyền trigger xuống cho Sidebar nhận diện
+        pendingRefreshTrigger={pendingRefreshTrigger}
       />
 
       <div className="content">
