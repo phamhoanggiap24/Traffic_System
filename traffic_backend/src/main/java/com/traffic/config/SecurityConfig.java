@@ -19,6 +19,7 @@ import java.util.Arrays;
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
+
     @Autowired
     private com.traffic.service.JwtService jwtService;
 
@@ -37,7 +38,7 @@ public class SecurityConfig {
                         .sessionCreationPolicy(org.springframework.security.config.http.SessionCreationPolicy.STATELESS)
                 )
 
-                // CẤU HÌNH BẮT LỖI: Trả về mã lỗi trực quan 401 khi token lỗi hoặc không có quyền truy cập mặc định
+                // CẤU HÌNH BẮT LỖI CHUẨN: Chỉ trả về 401 khi thực sự không có Token hợp lệ
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setStatus(401);
@@ -51,6 +52,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
 
+                        // 🌟 ĐÃ CHỈNH: Cho phép tất cả tài khoản đã Login đi qua tầng Security để vào xử lý sâu trong Controller
+                        .requestMatchers("/api/profile/me").authenticated()
                         .requestMatchers("/api/profile/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN", "USER", "ADMIN")
 
                         .requestMatchers("/api/admin/**").hasAnyAuthority("ROLE_ADMIN", "ADMIN")

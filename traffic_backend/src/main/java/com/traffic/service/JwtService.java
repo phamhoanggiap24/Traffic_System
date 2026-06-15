@@ -97,15 +97,16 @@ public class JwtService extends OncePerRequestFilter {
                 if (taiKhoanOpt.isPresent()) {
                     TaiKhoan tk = taiKhoanOpt.get();
 
-                    // Kiểm tra Admin tối cao đặc cách
+                    // 🌟 DÙNG ĐÚNG LOGIC GỐC CỦA BẠN: Kiểm tra xem danh sách quyền có chứa vai trò ADMIN không
                     boolean isAdmin = "admin".equalsIgnoreCase(tk.getTenDangNhap()) ||
                             (tk.getDanhSachPhanQuyen() != null && tk.getDanhSachPhanQuyen().stream()
                                     .anyMatch(pq -> pq.getVaiTro() != null &&
                                             (RoleConstant.ROLE_ADMIN.equalsIgnoreCase(pq.getVaiTro().getTenVaiTro()) ||
                                                     "ADMIN".equalsIgnoreCase(pq.getVaiTro().getTenVaiTro()))));
 
-                    // Kiểm tra trạng thái khóa (Không áp dụng cho tài khoản admin hệ thống)
+                    // Kiểm tra trạng thái khóa (Chỉ áp dụng cho USER thường, tuyệt đối KHÔNG chặn ADMIN)
                     if (!isAdmin) {
+                        // Thỏa mãn 1 trong 2: Trạng thái bị khóa HOẶC Điểm số độ tin cậy < 5
                         boolean isLocked = UserStatus.LOCKED.equals(tk.getTrangThai()) ||
                                 (tk.getDoTinCayNguoiDung() != null && tk.getDoTinCayNguoiDung() < 5);
 
@@ -113,11 +114,11 @@ public class JwtService extends OncePerRequestFilter {
                             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                             response.setContentType("application/json;charset=UTF-8");
                             response.getWriter().write("{\"status\": 403, \"message\": \"Tài khoản của bạn đã bị khóa hoặc điểm độ tin cậy quá thấp (<5)!\"}");
-                            return;
+                            return; // Đá văng duy nhất thằng USER vi phạm này ra
                         }
                     }
 
-                    // Khởi tạo danh sách quyền hạn hợp lệ
+                    // Khởi tạo danh sách quyền hạn hợp lệ (Giữ nguyên gốc của bạn)
                     List<SimpleGrantedAuthority> authorities = new ArrayList<>();
 
                     if (tk.getDanhSachPhanQuyen() != null) {
@@ -149,7 +150,7 @@ public class JwtService extends OncePerRequestFilter {
                     );
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-                    // SỬA LỖI CHÍ MẠNG: ĐẨY DANH TÍNH VÀO CONTEXT ĐỂ SPRING SECURITY ĐỒNG Ý CHO QUA
+                    // ĐẨY DANH TÍNH VÀO CONTEXT ĐỂ SPRING SECURITY ĐỒNG Ý CHO QUA
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }

@@ -19,47 +19,61 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingRefreshTrigger, setPendingRefreshTrigger] = useState(0);
 
-  // 🌟 VÒNG QUÉT KIỂM TRA TRẠNG THÁI TOÀN HỆ THỐNG (BẤT KỂ ĐANG Ở TAB NÀO)
+  // 1. LẮNG NGHE SỰ KIỆN BUỘC ĐĂNG XUẤT TỪ AXIOS INTERCEPTOR
   useEffect(() => {
-    // Nếu chưa đăng nhập hoặc không có user thì tuyệt đối không quét ngầm (Tránh lặp popup ở màn Login)
-    if (!user) return;
+    const handleForceLogout = () => {
+      setUser(null);          // Sút văng khỏi màn hình chính, ép về màn Login ngay lập tức
+      setAuthView('login');   // Đảm bảo đưa view về khung Đăng nhập
+      setActiveTab('map');    // Reset tab mặc định
+    };
+
+    window.addEventListener('force-logout', handleForceLogout);
+    return () => {
+      window.removeEventListener('force-logout', handleForceLogout);
+    };
+  }, []);
+
+  // 2. VÒNG QUÉT KIỂM TRA TRẠNG THÁI NGẦM (CHỈ CHẠY KHI ĐỦ ĐIỀU KIỆN)
+  useEffect(() => {
+    // ĐIỀU KIỆN CHẶN BẢO VỆ: Nếu thiếu user HOẶC thiếu hẳn accessToken trong máy thì dừng toàn bộ luồng quét!
+    const token = localStorage.getItem('accessToken');
+    if (!user || !token) return;
 
     const checkAccountStatus = async () => {
       try {
-        // Gửi request siêu nhẹ lên endpoint kiểm tra trạng thái bảo mật ở backend
         await api.get('/profile/me');
       } catch (error) {
-        console.error("Phát hiện tài khoản vi phạm hoặc hết hạn phiên làm việc ngầm:", error);
-        // Khi lỗi 403/401 xảy ra, Axios Interceptor sẽ tự động xử lý xóa localStorage và redirect về /login.
+        console.error("Lỗi xác thực hệ thống ngầm:", error);
       }
     };
 
-    // 1. Chạy kiểm tra ngay lập tức khi người dùng vừa load trang hoặc chuyển tab
-    checkAccountStatus();
+    // Tạo một khoảng hoãn nhẹ 1 giây sau khi mount mới check phát đầu tiên để tránh xung đột
+    const initialTimeout = setTimeout(checkAccountStatus, 1000);
 
-    // 2. Thiết lập chạy ngầm định kỳ cứ mỗi 20 giây quét một lần (20000ms)
+    // Thiết lập chạy ngầm định kỳ mỗi 20 giây một lần
     const intervalId = setInterval(checkAccountStatus, 20000);
 
-    // Dọn dẹp luồng chạy ngầm khi người dùng logout hoặc hủy component
-    return () => clearInterval(intervalId);
-  }, [user]); // Theo dõi trạng thái biến user
+    // DỌN DẸP TUYỆT ĐỐI: Khi user = null, dọn dẹp sạch tiến trình tránh rò rỉ request
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(intervalId);
+    };
+  }, [user]); // Theo dõi sát sao biến user
 
 
+  // --- TOÀN BỘ LOGIC PHÍA DƯỚI GIỮ NGUYÊN CŨ CỦA BẠN ---
   useEffect(() => {
     localStorage.setItem('currentTab', activeTab);
   }, [activeTab]);
 
-  // Đóng sidebar khi chuyển tab
   useEffect(() => {
     setSidebarOpen(false);
   }, [activeTab]);
 
-  // Theo dõi sự kiện thay đổi báo cáo từ ReportList để cập nhật trigger
   useEffect(() => {
     const handleIncidentUpdate = () => {
       setPendingRefreshTrigger(prev => prev + 1);
     };
-
     window.addEventListener('incident-verified', handleIncidentUpdate);
     return () => {
       window.removeEventListener('incident-verified', handleIncidentUpdate);
@@ -85,39 +99,16 @@ function App() {
 
   return (
     <div className="main-layout">
-      {/* Overlay khi sidebar mở trên mobile */}
-      <div
-        className={`sidebar-overlay ${!sidebarOpen ? 'hidden' : ''}`}
-        onClick={() => setSidebarOpen(false)}
-      />
-
-      <Sidebar
-        user={user}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onLogout={handleLogout}
-        isOpen={sidebarOpen}
-        pendingRefreshTrigger={pendingRefreshTrigger}
-      />
-
+      <div className={`sidebar-overlay ${!sidebarOpen ? 'hidden' : ''}`} onClick={() => setSidebarOpen(false)} />
+      <Sidebar user={user} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} isOpen={sidebarOpen} pendingRefreshTrigger={pendingRefreshTrigger} />
       <div className="content">
-        <Header 
-          activeTab={activeTab} 
-          user={user} 
-          onLogout={handleLogout} 
-          onUserUpdate={(u) => { setUser(u); localStorage.setItem('user', JSON.stringify(u)); }}
-          onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
-          menuOpen={sidebarOpen}
-        />
-
+        <Header activeTab={activeTab} user={user} onLogout={handleLogout} onUserUpdate={(u) => { setUser(u); localStorage.setItem('user', JSON.stringify(u)); }} onMenuToggle={() => setSidebarOpen(!sidebarOpen)} menuOpen={sidebarOpen} />
         <main className="view-container">
           {activeTab === 'map' && <TrafficMap />}
-
           {isAdmin && (
             <>
               {activeTab === 'users' && <UserManagement />}
               {activeTab === 'reports' && <ReportList setActiveTab={setActiveTab} />}
-
               <div style={{ display: activeTab === 'stats' ? 'block' : 'none', height: '100%' }}>
                  {activeTab === 'stats' && <TrafficAnalytics />}
               </div>
