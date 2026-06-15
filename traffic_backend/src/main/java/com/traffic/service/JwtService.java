@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -72,6 +73,13 @@ public class JwtService extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
+        // 1. Bỏ qua preflight request OPTIONS nhanh chóng
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            response.setStatus(HttpServletResponse.SC_OK);
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         final String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
@@ -79,71 +87,76 @@ public class JwtService extends OncePerRequestFilter {
         }
 
         final String jwt = authHeader.substring(7);
-        String username = extractUsername(jwt);
 
-        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            // SỬ DỤNG HÀM FETCH JOIN MẠNH NHẤT TỪ REPO CỦA BẠN ĐỂ LẤY FULL QUYỀN TỪ DB
-            Optional<TaiKhoan> taiKhoanOpt = taiKhoanRepository.findProfileByTenDangNhap(username);
+        try {
+            String username = extractUsername(jwt);
 
-            if (taiKhoanOpt.isPresent()) {
-                TaiKhoan tk = taiKhoanOpt.get();
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                Optional<TaiKhoan> taiKhoanOpt = taiKhoanRepository.findProfileByTenDangNhap(username);
 
-                // 1. Kiểm tra quyền Admin (Nếu tên đăng nhập là "admin" thì auto là Admin tối cao)
-                boolean isAdmin = "admin".equalsIgnoreCase(tk.getTenDangNhap()) ||
-                        (tk.getDanhSachPhanQuyen() != null && tk.getDanhSachPhanQuyen().stream()
-                                .anyMatch(pq -> pq.getVaiTro() != null &&
-                                        (RoleConstant.ROLE_ADMIN.equalsIgnoreCase(pq.getVaiTro().getTenVaiTro()) ||
-                                                "ADMIN".equalsIgnoreCase(pq.getVaiTro().getTenVaiTro()))));
+                if (taiKhoanOpt.isPresent()) {
+                    TaiKhoan tk = taiKhoanOpt.get();
 
-                // 2. Kiểm tra trạng thái khóa (Nếu là admin thì bỏ qua không chặn)
-                if (!isAdmin) {
-                    boolean isLocked = UserStatus.LOCKED.equals(tk.getTrangThai()) ||
-                            (tk.getDoTinCayNguoiDung() != null && tk.getDoTinCayNguoiDung() < 5);
-                    if (isLocked) {
-                        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                        response.setContentType("application/json;charset=UTF-8");
-                        response.getWriter().write("{\"status\": 403, \"message\": \"Tài khoản bị khóa!\"}");
-                        return;
+                    // Kiểm tra Admin tối cao đặc cách
+                    boolean isAdmin = "admin".equalsIgnoreCase(tk.getTenDangNhap()) ||
+                            (tk.getDanhSachPhanQuyen() != null && tk.getDanhSachPhanQuyen().stream()
+                                    .anyMatch(pq -> pq.getVaiTro() != null &&
+                                            (RoleConstant.ROLE_ADMIN.equalsIgnoreCase(pq.getVaiTro().getTenVaiTro()) ||
+                                                    "ADMIN".equalsIgnoreCase(pq.getVaiTro().getTenVaiTro()))));
+
+                    // Kiểm tra trạng thái khóa (Không áp dụng cho tài khoản admin hệ thống)
+                    if (!isAdmin) {
+                        boolean isLocked = UserStatus.LOCKED.equals(tk.getTrangThai()) ||
+                                (tk.getDoTinCayNguoiDung() != null && tk.getDoTinCayNguoiDung() < 5);
+                        if (isLocked) {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType("application/json;charset=UTF-8");
+                            response.getWriter().write("{\"status\": 403, \"message\": \"Tài khoản bị khóa!\"}");
+                            return;
+                        }
                     }
-                }
 
-                // 3. ÉP CỨNG QUYỀN VÀO CONTEXT (BẤT CHẤP TOKEN CŨ HAY MỚI)
-                List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+                    // Khởi tạo danh sách quyền hạn hợp lệ
+                    List<SimpleGrantedAuthority> authorities = new ArrayList<>();
 
-                if (tk.getDanhSachPhanQuyen() != null) {
-                    for (var pq : tk.getDanhSachPhanQuyen()) {
-                        if (pq.getVaiTro() != null && pq.getVaiTro().getTenVaiTro() != null) {
-                            String rawRole = pq.getVaiTro().getTenVaiTro().trim();
+                    if (tk.getDanhSachPhanQuyen() != null) {
+                        for (var pq : tk.getDanhSachPhanQuyen()) {
+                            if (pq.getVaiTro() != null && pq.getVaiTro().getTenVaiTro() != null) {
+                                String rawRole = pq.getVaiTro().getTenVaiTro().trim();
+                                authorities.add(new SimpleGrantedAuthority(rawRole));
 
-                            // Thêm quyền dạng thô từ DB (ví dụ: ROLE_ADMIN hoặc ADMIN)
-                            authorities.add(new SimpleGrantedAuthority(rawRole));
-
-                            // Nếu DB chưa có tiền tố ROLE_, nạp thêm một bản có chữ ROLE_ cho khớp với Config
-                            if (!rawRole.toUpperCase().startsWith("ROLE_")) {
-                                authorities.add(new SimpleGrantedAuthority("ROLE_" + rawRole.toUpperCase()));
+                                if (!rawRole.toUpperCase().startsWith("ROLE_")) {
+                                    authorities.add(new SimpleGrantedAuthority("ROLE_" + rawRole.toUpperCase()));
+                                }
                             }
                         }
                     }
-                }
 
-                // Nếu là tài khoản admin, ép thêm chắc chắn hai quyền cao nhất
-                if (isAdmin) {
-                    authorities.add(new SimpleGrantedAuthority("ADMIN"));
-                    authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
-                }
+                    if (isAdmin) {
+                        authorities.add(new SimpleGrantedAuthority("ADMIN"));
+                        authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
+                    }
 
-                // Nếu danh sách trống, mặc định gán quyền USER cơ bản
-                if (authorities.isEmpty()) {
-                    authorities.add(new SimpleGrantedAuthority("USER"));
-                    authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
-                }
+                    if (authorities.isEmpty()) {
+                        authorities.add(new SimpleGrantedAuthority("USER"));
+                        authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+                    }
 
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        tk, null, authorities
-                );
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                    // TẠO ĐỐI TƯỢNG XÁC THỰC CHUẨN ĐẦY ĐỦ QUYỀN HẠN
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            tk, null, authorities
+                    );
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+                    // SỬA LỖI CHÍ MẠNG: ĐẨY DANH TÍNH VÀO CONTEXT ĐỂ SPRING SECURITY ĐỒNG Ý CHO QUA
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
             }
+        } catch (Exception e) {
+            // Nếu có lỗi parse token (hết hạn, sai chữ ký), dọn sạch context để Spring Security xử lý từ chối an toàn
+            SecurityContextHolder.clearContext();
         }
+
         filterChain.doFilter(request, response);
     }
 

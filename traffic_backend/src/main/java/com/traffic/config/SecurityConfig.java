@@ -33,9 +33,17 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-                // Cấu hình Session trạng thái STATELESS bắt buộc cho Token
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(org.springframework.security.config.http.SessionCreationPolicy.STATELESS)
+                )
+
+                // CẤU HÌNH BẮT LỖI: Trả về mã lỗi trực quan 401 khi token lỗi hoặc không có quyền truy cập mặc định
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(401);
+                            response.setContentType("application/json;charset=UTF-8");
+                            response.getWriter().write("{\"status\": 401, \"message\": \"Phiên đăng nhập không hợp lệ hoặc đã hết hạn!\"}");
+                        })
                 )
 
                 .authorizeHttpRequests(auth -> auth
@@ -43,16 +51,14 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
 
-                        .requestMatchers("/api/profile/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
+                        .requestMatchers("/api/profile/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN", "USER", "ADMIN")
 
-                        // Yêu cầu token đối với các API chức năng để kích hoạt vòng quét trạng thái DB
-                        .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers("/api/admin/**").hasAnyAuthority("ROLE_ADMIN", "ADMIN")
                         .requestMatchers("/api/traffic/**").authenticated()
                         .requestMatchers("/api/bao-cao/**").authenticated()
                         .anyRequest().authenticated()
                 )
 
-                // ĐĂNG KÝ: Coi lớp jwtService như một Filter chạy trước UsernamePasswordAuthenticationFilter
                 .addFilterBefore(jwtService, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
 
                 .logout(logout -> logout
@@ -77,7 +83,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Arrays.asList(frontendUrl));
+        configuration.setAllowedOriginPatterns(Arrays.asList(frontendUrl, "https://traffic-system-vn.vercel.app"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
