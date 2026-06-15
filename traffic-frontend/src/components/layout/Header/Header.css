@@ -41,7 +41,7 @@
   color: #2563eb;
 }
 
-/* TỐI ƯU CĂN GIỮA KHUNG THÔNG BÁO */
+/* RESPONSIVE MOBILE HEADER */
 @media (max-width: 768px) {
   .header-container {
     padding: 12px 15px;
@@ -63,23 +63,26 @@
     display: none;
   }
 
-  /* Thả xuống chính giữa màn hình điện thoại */
+  /* Notification dropdown responsive */
   .noti-dropdown {
     position: fixed !important;
-    top: 70px; /* Thả xuống ngay dưới thanh Header */
-    left: 50% !important; /* Đẩy mốc bắt đầu ra giữa màn hình */
-    right: auto !important; /* Hủy bỏ neo lề phải cũ */
-    transform: translateX(-50%) !important; /* Giúp căn đều chuẩn xác 100% ở giữa màn hình */
-    width: calc(100vw - 24px) !important; /* Chiều rộng chiếm tối đa, cách đều 2 mép viền 12px */
-    max-width: 360px !important; /* Khống chế không để quá to trên màn hình tablet bẹt */
-    max-height: 65vh;
-    bottom: auto;
-    z-index: 999999 !important;
+    top: 60px !important; /* Đặt cố định sát ngay dưới thanh Header */
+    left: 12px !important; /* Neo lề trái */
+    right: 12px !important; /* Neo lề phải */
+    transform: none !important; /* Bỏ transform cũ tránh xung đột kéo lệch tọa độ */
+    width: auto !important; /* Để auto tự động căng theo left/right cách đều 2 viền */
+    max-width: none !important;
+    max-height: 75vh !important; /* Khống chế chiều cao tối đa bằng 75% màn hình để không bao giờ bị tràn đáy */
+    bottom: auto !important;
+    z-index: 999999 !important; /* Đẩy nổi hẳn lên trên cùng Map */
     display: flex !important;
   }
 
+  /* Ép phần thân thông báo phải sinh ra thanh cuộn nội bộ nếu chữ quá dài */
   .noti-dropdown-body {
-    max-height: calc(65vh - 60px);
+    max-height: calc(75vh - 50px) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Profile responsive */
@@ -104,11 +107,12 @@
 
   /* Profile dropdown responsive */
   .profile-dropdown {
-    position: fixed;
-    right: 12px;
-    left: auto;
-    width: 160px;
-    top: 70px;
+    position: fixed !important;
+    right: 12px !important;
+    left: auto !important;
+    width: 160px !important;
+    top: 60px !important;
+    z-index: 999999 !important;
   }
 }
 
