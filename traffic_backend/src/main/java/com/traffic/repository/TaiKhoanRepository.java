@@ -27,6 +27,6 @@ public interface TaiKhoanRepository extends JpaRepository<TaiKhoan, Long> {
 
     Page<TaiKhoan> findByTenDangNhapContainingIgnoreCaseAndTrangThaiNot(String tenDangNhap, UserStatus status, Pageable pageable);
 
-    @Query("SELECT tk FROM TaiKhoan tk LEFT JOIN FETCH tk.danhSachPhanQuyen WHERE tk.tenDangNhap = :username")
+    @Query("SELECT tk FROM TaiKhoan tk LEFT JOIN FETCH tk.danhSachPhanQuyen pq LEFT JOIN FETCH pq.vaiTro WHERE tk.tenDangNhap = :username")
     Optional<TaiKhoan> findProfileByTenDangNhap(@Param("username") String username);
 }

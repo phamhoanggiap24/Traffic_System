@@ -1,5 +1,6 @@
 package com.traffic.service;
 
+import com.traffic.common.RoleConstant;
 import com.traffic.common.UserStatus;
 import com.traffic.entity.TaiKhoan;
 import com.traffic.repository.TaiKhoanRepository;
@@ -78,32 +79,20 @@ public class JwtService extends OncePerRequestFilter {
         }
 
         final String jwt = authHeader.substring(7);
-        String username;
-        try {
-            username = Jwts.parserBuilder()
-                    .setSigningKey(getSignInKey())
-                    .build()
-                    .parseClaimsJws(jwt)
-                    .getBody()
-                    .getSubject();
-        } catch (Exception e) {
-            filterChain.doFilter(request, response);
-            return;
-        }
+        String username = extractUsername(jwt);
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            // Sử dụng hàm đã JOIN FETCH để không bị lỗi LazyLoading
             Optional<TaiKhoan> taiKhoanOpt = taiKhoanRepository.findProfileByTenDangNhap(username);
 
             if (taiKhoanOpt.isPresent()) {
                 TaiKhoan tk = taiKhoanOpt.get();
 
-                // 1. Kiểm tra Admin an toàn
+                // 1. Kiểm tra Admin (Sử dụng hằng số RoleConstant)
                 boolean isAdmin = "admin".equalsIgnoreCase(tk.getTenDangNhap()) ||
                         tk.getDanhSachPhanQuyen().stream()
-                                .anyMatch(pq -> pq.getVaiTro() != null && "ROLE_ADMIN".equals(pq.getVaiTro().getTenVaiTro()));
+                                .anyMatch(pq -> pq.getVaiTro() != null && RoleConstant.ROLE_ADMIN.equals(pq.getVaiTro().getTenVaiTro()));
 
-                // 2. Kiểm tra trạng thái tài khoản (Chỉ chặn User thường)
+                // 2. Kiểm tra trạng thái tài khoản
                 if (!isAdmin) {
                     boolean isLocked = UserStatus.LOCKED.equals(tk.getTrangThai()) ||
                             (tk.getDoTinCayNguoiDung() != null && tk.getDoTinCayNguoiDung() < 5);
@@ -115,16 +104,18 @@ public class JwtService extends OncePerRequestFilter {
                     }
                 }
 
-                // 3. Nạp quyền (Authorities) từ danh sách đã fetch sẵn
+                // 3. Nạp quyền (Sử dụng RoleConstant để đồng bộ)
                 List<SimpleGrantedAuthority> authorities = tk.getDanhSachPhanQuyen().stream()
                         .map(pq -> new SimpleGrantedAuthority(pq.getVaiTro().getTenVaiTro()))
                         .collect(Collectors.toList());
 
                 if (authorities.isEmpty()) {
-                    authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+                    authorities.add(new SimpleGrantedAuthority(RoleConstant.ROLE_USER));
                 }
-                if (isAdmin) {
-                    authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
+
+                // Nếu là Admin, đảm bảo quyền Admin được nạp
+                if (isAdmin && authorities.stream().noneMatch(a -> a.getAuthority().equals(RoleConstant.ROLE_ADMIN))) {
+                    authorities.add(new SimpleGrantedAuthority(RoleConstant.ROLE_ADMIN));
                 }
 
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
