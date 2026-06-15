@@ -30,6 +30,7 @@ public class TaiKhoan {
     private String tenDangNhap;
 
     @Column(nullable = false)
+    @JsonIgnore
     private String matKhau;
 
     @Column(unique = true)
@@ -61,25 +62,32 @@ public class TaiKhoan {
     // CascadeType.ALL: Khi xóa tài khoản, các bản ghi phân quyền liên quan sẽ bị xóa theo
     // orphanRemoval = true: Khi xóa một phân quyền khỏi danh sách này, nó sẽ bị xóa khỏi DB
     @OneToMany(mappedBy = "taiKhoan", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<PhanQuyen> danhSachPhanQuyen = new ArrayList<>();
 
     // Quan hệ với các bảng nghiệp vụ khác theo ERD của bạn
     @OneToMany(mappedBy = "taiKhoan")
+    @JsonIgnore
     private List<BaoCaoSuCo> danhSachBaoCao;
 
     @OneToMany(mappedBy = "taiKhoan")
+    @JsonIgnore
     private List<CanhBao> danhSachCanhBao;
 
     @OneToOne(mappedBy = "taiKhoan", cascade = CascadeType.ALL)
+    @JsonIgnore
     private TuyChonCaNhan tuyChonCaNhan;
 
     @OneToMany(mappedBy = "taiKhoan")
+    @JsonIgnore
     private List<NhatKyHeThong> nhatKyHeThong;
 
     @OneToMany(mappedBy = "taiKhoan")
+    @JsonIgnore
     private List<TokenXacThuc> danhSachToken;
 
     @OneToMany(mappedBy = "taiKhoan")
+    @JsonIgnore
     private List<NhatKyXacMinh> nhatKyXacMinh;
 
 }

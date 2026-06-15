@@ -140,7 +140,7 @@ public class EmailServiceImpl implements EmailService {
 
     // 3. LUỒNG GỬI MÃ OTP QUÊN MẬT KHẨU
     @Override
-    @Async
+    // @Async
     public void sendOtpPasswordEmail(String toEmail, String otpCode) {
         System.out.println("[ASYNC-MAIL] >>> Nhận tác vụ gửi mã OTP khôi phục mật khẩu ngầm...");
 

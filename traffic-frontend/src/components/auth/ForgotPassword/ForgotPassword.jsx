@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect,useRef } from 'react';
 import './ForgotPassword.css';
 import api from '../../../api/axiosConfig';
 
@@ -9,35 +9,44 @@ const ForgotPassword = ({ goToLogin }) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [timer, setTimer] = useState(300);
 
-  // Logic đếm ngược
+  // DÙNG REFS ĐỂ LƯU MỐC THỜI GIAN KẾT THÚC THỰC TẾ
+  const [timeLeft, setTimeLeft] = useState(300);
+  const expiryTimeRef = useRef(null);
+
   useEffect(() => {
     let interval = null;
-    if (step === 2 && timer > 0) {
+    if (step === 2) {
+      // Thiết lập mốc thời gian hết hạn (hiện tại + 5 phút)
+      if (!expiryTimeRef.current) {
+        expiryTimeRef.current = new Date().getTime() + 300 * 1000;
+      }
+
       interval = setInterval(() => {
-        setTimer((prev) => prev - 1);
+        const now = new Date().getTime();
+        const distance = expiryTimeRef.current - now;
+
+        if (distance <= 0) {
+          clearInterval(interval);
+          setTimeLeft(0);
+        } else {
+          setTimeLeft(Math.floor(distance / 1000));
+        }
       }, 1000);
-    } else if (timer === 0) {
-      clearInterval(interval);
+    } else {
+      expiryTimeRef.current = null; // Reset mốc khi thoát khỏi step 2
     }
     return () => clearInterval(interval);
-  }, [step, timer]);
+  }, [step]);
 
-  const formatTime = (seconds) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
-  // Gửi Email
+  // Hàm handleStep1 cần sửa để reset mốc thời gian
   const handleStep1 = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
       await api.post('/auth/forgot-password', { email });
+      expiryTimeRef.current = null; // Reset để set lại mốc mới ở useEffect
       setStep(2);
-      setTimer(300);
     } catch (err) {
       alert(err.response?.data?.message || "Email không tồn tại!");
     } finally { setLoading(false); }

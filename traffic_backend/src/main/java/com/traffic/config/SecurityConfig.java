@@ -43,8 +43,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
 
+                        .requestMatchers("/api/profile/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
+
                         // Yêu cầu token đối với các API chức năng để kích hoạt vòng quét trạng thái DB
-                        .requestMatchers("/api/admin/**").authenticated()
+                        .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
                         .requestMatchers("/api/traffic/**").authenticated()
                         .requestMatchers("/api/bao-cao/**").authenticated()
                         .anyRequest().authenticated()
