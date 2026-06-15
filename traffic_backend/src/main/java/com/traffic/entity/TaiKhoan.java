@@ -3,10 +3,7 @@ package com.traffic.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.traffic.common.UserStatus;
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -16,7 +13,8 @@ import java.util.List;
 
 @Entity
 @Table(name = "tai_khoan")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -58,36 +56,46 @@ public class TaiKhoan {
     @UpdateTimestamp
     private LocalDateTime ngayCapNhat;
 
-    // Quan hệ với bảng phân quyền (thực thể trung gian)
-    // CascadeType.ALL: Khi xóa tài khoản, các bản ghi phân quyền liên quan sẽ bị xóa theo
-    // orphanRemoval = true: Khi xóa một phân quyền khỏi danh sách này, nó sẽ bị xóa khỏi DB
     @OneToMany(mappedBy = "taiKhoan", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @Builder.Default
     private List<PhanQuyen> danhSachPhanQuyen = new ArrayList<>();
 
-    // Quan hệ với các bảng nghiệp vụ khác theo ERD của bạn
     @OneToMany(mappedBy = "taiKhoan")
     @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private List<BaoCaoSuCo> danhSachBaoCao;
 
     @OneToMany(mappedBy = "taiKhoan")
     @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private List<CanhBao> danhSachCanhBao;
 
     @OneToOne(mappedBy = "taiKhoan", cascade = CascadeType.ALL)
     @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private TuyChonCaNhan tuyChonCaNhan;
 
     @OneToMany(mappedBy = "taiKhoan")
     @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private List<NhatKyHeThong> nhatKyHeThong;
 
     @OneToMany(mappedBy = "taiKhoan")
     @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private List<TokenXacThuc> danhSachToken;
 
     @OneToMany(mappedBy = "taiKhoan")
     @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private List<NhatKyXacMinh> nhatKyXacMinh;
-
 }
