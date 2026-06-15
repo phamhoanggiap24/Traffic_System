@@ -41,7 +41,7 @@
   color: #2563eb;
 }
 
-/* RESPONSIVE MOBILE HEADER - ĐÃ TỐI ƯU CĂN GIỮA KHUNG THÔNG BÁO */
+/* TỐI ƯU CĂN GIỮA KHUNG THÔNG BÁO */
 @media (max-width: 768px) {
   .header-container {
     padding: 12px 15px;
@@ -63,7 +63,7 @@
     display: none;
   }
 
-  /* Notification dropdown responsive - ĐÃ SỬA: Thả xuống chính giữa màn hình điện thoại */
+  /* Thả xuống chính giữa màn hình điện thoại */
   .noti-dropdown {
     position: fixed !important;
     top: 70px; /* Thả xuống ngay dưới thanh Header */
@@ -74,6 +74,8 @@
     max-width: 360px !important; /* Khống chế không để quá to trên màn hình tablet bẹt */
     max-height: 65vh;
     bottom: auto;
+    z-index: 999999 !important;
+    display: flex !important;
   }
 
   .noti-dropdown-body {
