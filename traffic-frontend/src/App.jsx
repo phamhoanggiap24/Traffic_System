@@ -41,7 +41,25 @@ function App() {
 
     const checkAccountStatus = async () => {
       try {
-        await api.get('/profile/me');
+        const res = await api.get('/profile/me');
+
+        if (res.data?.status === 200 && res.data?.data) {
+          const oldUser = JSON.parse(localStorage.getItem('user')) || {};
+
+          const updatedUser = {
+            ...oldUser,
+            ...res.data.data,
+            vaiTro: oldUser.vaiTro
+          };
+
+          if (
+            oldUser.doTinCayNguoiDung !== updatedUser.doTinCayNguoiDung ||
+            oldUser.trangThai !== updatedUser.trangThai
+          ) {
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            setUser(updatedUser);
+          }
+        }
       } catch (error) {
         console.error("Lỗi xác thực hệ thống ngầm:", error);
       }
@@ -50,15 +68,15 @@ function App() {
     // Tạo một khoảng hoãn nhẹ 1 giây sau khi mount mới check phát đầu tiên để tránh xung đột
     const initialTimeout = setTimeout(checkAccountStatus, 1000);
 
-    // Thiết lập chạy ngầm định kỳ mỗi 20 giây một lần
-    const intervalId = setInterval(checkAccountStatus, 20000);
+    // Thiết lập chạy ngầm định kỳ mỗi 5 giây một lần
+    const intervalId = setInterval(checkAccountStatus, 5000);
 
     // DỌN DẸP TUYỆT ĐỐI: Khi user = null, dọn dẹp sạch tiến trình tránh rò rỉ request
     return () => {
       clearTimeout(initialTimeout);
       clearInterval(intervalId);
     };
-  }, [user]); // Theo dõi sát sao biến user
+  }, [user?.tenDangNhap]); // Theo dõi sát sao biến user
 
 
   // --- TOÀN BỘ LOGIC PHÍA DƯỚI GIỮ NGUYÊN CŨ CỦA BẠN ---

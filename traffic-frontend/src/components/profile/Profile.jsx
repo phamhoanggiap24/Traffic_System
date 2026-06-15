@@ -18,19 +18,40 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
 
   // VÒNG ĐỜI KHI MỞ MODAL PROFILE
   useEffect(() => {
-    if (isOpen && currentUser) {
-      // Gán dữ liệu form trực tiếp từ currentUser được truyền từ Header xuống
-      setFormData({
-        hoTen: currentUser.hoTen || '',
-        soDienThoai: currentUser.soDienThoai || ''
-      });
-      setMessage({ type: '', text: '' });
-      setActiveTab('info');
-      setPasswordData({ matKhauCu: '', matKhauMoi: '', confirmPassword: '' });
+    if (!isOpen || !currentUser) return;
 
-      // Sử dụng luôn dữ liệu từ currentUser truyền xuống, không gọi API /profile/me lỗi nữa
-      setLiveProfile(currentUser);
-    }
+    const loadProfile = async () => {
+      try {
+        const res = await api.get('/profile/me');
+
+        if (res.data?.status === 200) {
+          setLiveProfile(res.data.data);
+        } else {
+          setLiveProfile(currentUser);
+        }
+      } catch {
+        setLiveProfile(currentUser);
+      }
+    };
+
+    setFormData({
+      hoTen: currentUser.hoTen || '',
+      soDienThoai: currentUser.soDienThoai || ''
+    });
+
+    setMessage({ type: '', text: '' });
+    setActiveTab('info');
+    setPasswordData({
+      matKhauCu: '',
+      matKhauMoi: '',
+      confirmPassword: ''
+    });
+
+    loadProfile();
+
+    const interval = setInterval(loadProfile, 5000);
+
+    return () => clearInterval(interval);
   }, [isOpen, currentUser]);
 
   // Xác định tài khoản có phải là Admin không (Sử dụng dữ liệu live nếu có)
