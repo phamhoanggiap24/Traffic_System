@@ -1,5 +1,6 @@
 package com.traffic.config;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -8,6 +9,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter; // Thêm dòng này
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -18,6 +20,8 @@ import java.util.Arrays;
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
+    @Autowired
+    private com.traffic.service.JwtService jwtService;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -29,31 +33,38 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+                // Cấu hình Session trạng thái STATELESS bắt buộc cho Token
                 .sessionManagement(session -> session
-                     .sessionCreationPolicy(org.springframework.security.config.http.SessionCreationPolicy.IF_REQUIRED)
+                        .sessionCreationPolicy(org.springframework.security.config.http.SessionCreationPolicy.STATELESS)
                 )
+
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/admin/**").permitAll()
-                        .requestMatchers("/api/traffic/**").permitAll()
-                        .requestMatchers("/api/bao-cao/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
-                        .anyRequest().permitAll()
+
+                        // Yêu cầu token đối với các API chức năng để kích hoạt vòng quét trạng thái DB
+                        .requestMatchers("/api/admin/**").authenticated()
+                        .requestMatchers("/api/traffic/**").authenticated()
+                        .requestMatchers("/api/bao-cao/**").authenticated()
+                        .anyRequest().authenticated()
                 )
-                //.httpBasic(Customizer.withDefaults())
+
+                // ĐĂNG KÝ: Coi lớp jwtService như một Filter chạy trước UsernamePasswordAuthenticationFilter
+                .addFilterBefore(jwtService, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
 
                 .logout(logout -> logout
-                .logoutUrl("/api/auth/logout") // Đường dẫn gọi API đăng xuất
-                .logoutSuccessHandler((request, response, authentication) -> {
-                    response.setStatus(200);
-                    response.setContentType("application/json");
-                    response.setCharacterEncoding("UTF-8");
-                    response.getWriter().write("{\"status\": 200, \"message\": \"Đăng xuất thành công!\"}");
-                })
-                .invalidateHttpSession(true) // Xóa session
-                .clearAuthentication(true)   // Xóa thông tin xác thực
-                .deleteCookies("JSESSIONID") // Xóa cookie
-        );
+                        .logoutUrl("/api/auth/logout")
+                        .logoutSuccessHandler((request, response, authentication) -> {
+                            response.setStatus(200);
+                            response.setContentType("application/json");
+                            response.setCharacterEncoding("UTF-8");
+                            response.getWriter().write("{\"status\": 200, \"message\": \"Đăng xuất thành công!\"}");
+                        })
+                        .invalidateHttpSession(true)
+                        .clearAuthentication(true)
+                        .deleteCookies("JSESSIONID")
+                );
 
         return http.build();
     }
