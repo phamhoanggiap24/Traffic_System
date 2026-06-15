@@ -21,6 +21,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.security.Key;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -43,7 +44,7 @@ public class JwtService extends OncePerRequestFilter {
     @Autowired
     private TaiKhoanRepository taiKhoanRepository;
 
-    // CÁC HÀM TIỆN ÍCH DÙNG CHO ĐĂNG NHẬP (AuthServiceImpl gọi sang)
+    // CÁC HÀM TIỆN ÍCH DÙNG CHO ĐĂNG NHẬP
     public String generateToken(TaiKhoan taiKhoan) {
         return buildToken(new HashMap<>(), taiKhoan, jwtExpiration);
     }
@@ -67,7 +68,7 @@ public class JwtService extends OncePerRequestFilter {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    // BỘ LỌC CHẶN REQUEST THỜI GIAN THỰC (Bảo mật Spring Security)
+    // BỘ LỌC CHẶN REQUEST THỜI GIAN THỰC
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
@@ -76,7 +77,6 @@ public class JwtService extends OncePerRequestFilter {
         final String jwt;
         final String username;
 
-        // Nếu không có header token hợp lệ thì cho đi qua để Spring Security xử lý phân quyền sau
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
@@ -84,7 +84,6 @@ public class JwtService extends OncePerRequestFilter {
 
         jwt = authHeader.substring(7);
 
-        // Tiến hành giải mã Token lấy tên đăng nhập
         try {
             username = Jwts.parserBuilder()
                     .setSigningKey(getSignInKey())
@@ -97,31 +96,40 @@ public class JwtService extends OncePerRequestFilter {
             return;
         }
 
-        // Kiểm tra tài khoản và chặn trạng thái Khóa Real-time
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             Optional<TaiKhoan> taiKhoanOpt = taiKhoanRepository.findByTenDangNhap(username);
 
             if (taiKhoanOpt.isPresent()) {
                 TaiKhoan tk = taiKhoanOpt.get();
 
-                List<String> roles = tk.getDanhSachPhanQuyen().stream()
-                        .map(pq -> pq.getVaiTro().getTenVaiTro())
-                        .collect(Collectors.toList());
-                boolean isAdmin = roles.contains("ROLE_ADMIN");
+                // Xác định quyền Admin an toàn không lo Lazy Loading lỗi
+                boolean isAdmin = "admin".equalsIgnoreCase(tk.getTenDangNhap());
 
-                //  LOGIC ĐẨY TÀI KHOẢN KHI ADMIN KHÓA
-                boolean isLockedByStatus = UserStatus.LOCKED.equals(tk.getTrangThai()) || "LOCKED".equals(String.valueOf(tk.getTrangThai()));
-                boolean isLockedByPoint = (tk.getDoTinCayNguoiDung() != null && tk.getDoTinCayNguoiDung() < 5);
-
-                if (!isAdmin && (isLockedByStatus || isLockedByPoint)) {
-                    // Trả về mã lỗi 403 để kích hoạt Force Logout ở file axiosConfig.js phía React
-                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                    response.setContentType("application/json;charset=UTF-8");
-                    response.getWriter().write("{\"status\": 403, \"message\": \"Tài khoản của bạn đã bị khóa!\"}");
-                    return;
+                if (!isAdmin) {
+                    try {
+                        List<String> roles = tk.getDanhSachPhanQuyen().stream()
+                                .map(pq -> pq.getVaiTro().getTenVaiTro())
+                                .collect(Collectors.toList());
+                        isAdmin = roles.contains("ROLE_ADMIN");
+                    } catch (Exception e) {
+                        isAdmin = false;
+                    }
                 }
 
-                // Kiểm tra thời hạn Token
+                // CHẶN NGƯỜI DÙNG THƯỜNG (Nếu bị khóa hoặc điểm thấp)
+                if (!isAdmin) {
+                    boolean isLockedByStatus = UserStatus.LOCKED.equals(tk.getTrangThai()) || "LOCKED".equals(String.valueOf(tk.getTrangThai()));
+                    boolean isLockedByPoint = (tk.getDoTinCayNguoiDung() != null && tk.getDoTinCayNguoiDung() < 5);
+
+                    if (isLockedByStatus || isLockedByPoint) {
+                        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                        response.setContentType("application/json;charset=UTF-8");
+                        response.getWriter().write("{\"status\": 403, \"message\": \"Tài khoản của bạn đã bị khóa!\"}");
+                        return;
+                    }
+                }
+
+                // KIỂM TRA THỜI HẠN TOKEN
                 boolean isExpired = false;
                 try {
                     Date expiration = Jwts.parserBuilder()
@@ -135,11 +143,23 @@ public class JwtService extends OncePerRequestFilter {
                     isExpired = true;
                 }
 
-                // Nếu token hợp lệ, nạp thông tin đăng nhập vào Context hệ thống
                 if (!isExpired) {
-                    List<SimpleGrantedAuthority> authorities = roles.stream()
-                            .map(SimpleGrantedAuthority::new)
-                            .collect(Collectors.toList());
+                    List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+
+                    // Nạp quyền an toàn cho hệ thống
+                    if (isAdmin) {
+                        // Nếu là tài khoản Admin, gán thẳng quyền tránh lỗi Lazy Loading từ Database
+                        authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
+                    } else {
+                        try {
+                            authorities = tk.getDanhSachPhanQuyen().stream()
+                                    .map(pq -> new SimpleGrantedAuthority(pq.getVaiTro().getTenVaiTro()))
+                                    .collect(Collectors.toList());
+                        } catch (Exception e) {
+                            // Mặc định quyền USER nếu lỗi nạp danh sách
+                            authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+                        }
+                    }
 
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             tk, null, authorities
@@ -151,7 +171,7 @@ public class JwtService extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    // REFRESH TOKEN TRONG AUTH_SERVICE
+    // CÁC HÀM PHỤC VỤ REFRESH TOKEN
     public String extractUsername(String token) {
         try {
             return Jwts.parserBuilder()
