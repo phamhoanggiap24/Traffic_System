@@ -21,7 +21,7 @@ public class EmailServiceImpl implements EmailService {
     @Autowired
     private TrafficService trafficService;
 
-    @Value("${spring.mail.username}")
+    @Value("${spring.mail.username:${MAIL_USERNAME:your-email@gmail.com}}")
     private String emailSender;
 
     @Value("${APP_BASE_URL:http://localhost:8080}") // Tự động nhận diện URL hệ thống khi deploy
