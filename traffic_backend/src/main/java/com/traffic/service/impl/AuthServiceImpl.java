@@ -54,7 +54,7 @@ public class AuthServiceImpl implements AuthService {
 
             if (existingUser.getTrangThai() == UserStatus.INACTIVE) {
 
-                if (!existingUser.getEmail().equalsIgnoreCase(normalizedEmail)) {
+                if (existingUser.getEmail() == null || !existingUser.getEmail().equalsIgnoreCase(normalizedEmail)) {
                     return ApiResponse.error(
                             400,
                             "Tên đăng nhập đã tồn tại với email khác!"

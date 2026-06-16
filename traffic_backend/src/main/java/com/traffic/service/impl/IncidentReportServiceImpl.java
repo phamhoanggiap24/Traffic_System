@@ -2,6 +2,7 @@ package com.traffic.service.impl;
 
 import com.traffic.common.ReadStatus;
 import com.traffic.common.ReportStatus;
+import java.util.concurrent.CompletableFuture;
 import com.traffic.dto.request.ReportRequest;
 import com.traffic.dto.response.ReportResponse;
 import com.traffic.entity.*;
