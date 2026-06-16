@@ -113,9 +113,16 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
 
     // NGHI VẤN CHƯA QUÁ HẠN
     @Query(value = "SELECT COUNT(*) FROM bao_cao_su_co b " +
-            "WHERE b.trang_thai != 'DA_XOA' " +
-            "AND b.trang_thai IN ('CHO_XAC_MINH', 'NGHI_VAN')",
-            nativeQuery = true)
+            "WHERE b.trang_thai != 'DA_XOA' AND (" +
+            "  (b.trang_thai = 'CHO_XAC_MINH' AND (" +
+            "    (b.loai_su_co_id IN (1, 2) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) <= 30) OR " +
+            "    (b.loai_su_co_id IN (3, 4) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) <= 60)" +
+            "  )) OR " +
+            "  (b.trang_thai = 'NGHI_VAN' AND (" +
+            "    (b.loai_su_co_id IN (1, 2) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) <= 30) OR " +
+            "    (b.loai_su_co_id IN (3, 4) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) <= 60)" +
+            "  ))" +
+            ")", nativeQuery = true)
     long countPendingReports(@Param("now") LocalDateTime now);
 
     // CÁC PHƯƠNG THỨC LỌC BÁN KÍNH TRÊN BẢN ĐỒ
