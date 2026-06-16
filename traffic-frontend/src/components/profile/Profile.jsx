@@ -79,7 +79,9 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
   // Xác định tài khoản có phải là Admin không (Sử dụng dữ liệu live nếu có)
   const userForCheck = {
     ...currentUser,
-    ...liveProfile
+    ...liveProfile,
+    email: liveProfile?.email || currentUser?.email,
+    vaiTro: currentUser?.vaiTro || liveProfile?.vaiTro
   };
 
   const roles = Array.isArray(userForCheck?.vaiTro)
