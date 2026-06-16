@@ -14,7 +14,7 @@ public class MailConfig {
     @Value("${MAIL_HOST:smtp-relay.brevo.com}")
     private String host;
 
-    @Value("${MAIL_PORT:587}")
+    @Value("${MAIL_PORT:2525}")
     private int port;
 
     @Value("${MAIL_USERNAME:}")
