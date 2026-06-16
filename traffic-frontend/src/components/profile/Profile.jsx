@@ -10,11 +10,32 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
   });
   const [passwordData, setPasswordData] = useState({ matKhauCu: '', matKhauMoi: '', confirmPassword: '' });
   const [activeTab, setActiveTab] = useState('info');
-  const [message, setMessage] = useState({ type: '', text: '' });
+  const [infoMessage, setInfoMessage] = useState({ type: '', text: '' });
+  const [passwordMessage, setPasswordMessage] = useState({ type: '', text: '' });
   const [loading, setLoading] = useState(false);
 
   // BỔ SUNG STATE: Để lưu trữ thông tin "tươi" vừa cập nhật từ Database
   const [liveProfile, setLiveProfile] = useState(null);
+
+  useEffect(() => {
+    if (!infoMessage.text) return;
+
+    const timer = setTimeout(() => {
+      setInfoMessage({ type: '', text: '' });
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [infoMessage]);
+
+  useEffect(() => {
+    if (!passwordMessage.text) return;
+
+    const timer = setTimeout(() => {
+      setPasswordMessage({ type: '', text: '' });
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [passwordMessage]);
 
   // VÒNG ĐỜI KHI MỞ MODAL PROFILE
   useEffect(() => {
@@ -39,7 +60,8 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
       soDienThoai: currentUser.soDienThoai || ''
     });
 
-    setMessage({ type: '', text: '' });
+    setInfoMessage({ type: '', text: '' });
+    setPasswordMessage({ type: '', text: '' });
     setActiveTab('info');
     setPasswordData({
       matKhauCu: '',
@@ -96,9 +118,9 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
 
     const errorMessage = validateFields(updatedData);
     if (!errorMessage) {
-      if (message.type === 'error') setMessage({ type: '', text: '' });
+      if (infoMessage.type === 'error') setInfoMessage({ type: '', text: '' });
     } else {
-      setMessage({ type: 'error', text: errorMessage });
+      setInfoMessage({ type: 'error', text: errorMessage });
     }
   };
 
@@ -107,11 +129,11 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
   // Xử lý lưu Cập nhật thông tin cá nhân
   const handleUpdateInfo = async (e) => {
     e.preventDefault();
-    setMessage({ type: '', text: '' });
+    setInfoMessage({ type: '', text: '' });
 
     const errorMessage = validateFields(formData);
     if (errorMessage) {
-      setMessage({ type: 'error', text: errorMessage });
+      setInfoMessage({ type: 'error', text: errorMessage });
       return;
     }
 
@@ -123,7 +145,7 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
       });
 
       if (res.data && res.data.status === 200) {
-        setMessage({ type: 'success', text: 'Cập nhật thông tin thành công!' });
+        setInfoMessage({ type: 'success', text: 'Cập nhật thông tin thành công!' });
 
         // Đồng bộ dữ liệu ra bên ngoài hệ thống cho các component khác cùng biết
         if (onUserUpdate) {
@@ -134,10 +156,10 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
           });
         }
       } else {
-        setMessage({ type: 'error', text: res.data.message || 'Cập nhật thất bại!' });
+        setInfoMessage({ type: 'error', text: res.data.message || 'Cập nhật thất bại!' });
       }
     } catch (err) {
-      setMessage({ type: 'error', text: err.response?.data?.message || 'Lỗi kết nối hệ thống!' });
+      setInfoMessage({ type: 'error', text: err.response?.data?.message || 'Lỗi kết nối hệ thống!' });
     } finally {
       setLoading(false);
     }
@@ -147,12 +169,12 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
   const handlePasswordChange = async (e) => {
     e.preventDefault();
     if (passwordData.matKhauMoi !== passwordData.confirmPassword) {
-      setMessage({ type: 'error', text: 'Mật khẩu mới không trùng khớp!' });
+      setPasswordMessage({ type: 'error', text: 'Mật khẩu mới không trùng khớp!' });
       return;
     }
 
     setLoading(true);
-    setMessage({ type: '', text: '' });
+    setPasswordMessage({ type: '', text: '' });
 
     try {
       const res = await api.post('/profile/change-password', {
@@ -162,13 +184,13 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
       });
 
       if (res.data && res.data.status === 200) {
-        setMessage({ type: 'success', text: 'Đổi mật khẩu thành công!' });
+        setPasswordMessage({ type: 'success', text: 'Đổi mật khẩu thành công!' });
         setPasswordData({ matKhauCu: '', matKhauMoi: '', confirmPassword: '' });
       } else {
-        setMessage({ type: 'error', text: res.data.message || 'Có lỗi xảy ra!' });
+        setPasswordMessage({ type: 'error', text: res.data.message || 'Có lỗi xảy ra!' });
       }
     } catch (err) {
-      setMessage({ type: 'error', text: err.response?.data?.message || 'Mật khẩu cũ không chính xác!' });
+      setPasswordMessage({ type: 'error', text: err.response?.data?.message || 'Mật khẩu cũ không chính xác!' });
     } finally {
       setLoading(false);
     }
@@ -198,10 +220,17 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
         </div>
 
         <div className="profile-modal-body">
-          {message.text && (
-            <div className={`profile-alert ${message.type}`}>
-              {message.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
-              <span>{message.text}</span>
+          {activeTab === 'info' && infoMessage.text && (
+            <div className={`profile-alert ${infoMessage.type}`}>
+              {infoMessage.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+              <span>{infoMessage.text}</span>
+            </div>
+          )}
+
+          {activeTab === 'password' && passwordMessage.text && (
+            <div className={`profile-alert ${passwordMessage.type}`}>
+              {passwordMessage.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+              <span>{passwordMessage.text}</span>
             </div>
           )}
 
