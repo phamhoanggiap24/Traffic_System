@@ -14,6 +14,7 @@ const Register = ({ goToLogin }) => {
 
   const [message, setMessage] = useState({ type: '', text: '' });
   const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   const validateFields = (currentData) => {
     // Kiểm tra Họ tên
@@ -77,6 +78,8 @@ const Register = ({ goToLogin }) => {
     const updatedData = { ...formData, [fieldName]: value };
     setFormData(updatedData);
 
+    if (!submitted) return;
+
     const errorMessage = validateFields(updatedData);
 
     if (!errorMessage) {
@@ -91,6 +94,7 @@ const Register = ({ goToLogin }) => {
   // Xử lý lưu Đăng ký tài khoản mới
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitted(true);
     setMessage({ type: '', text: '' });
 
     // Kiểm tra lại toàn bộ form trước khi gửi
@@ -201,7 +205,17 @@ const Register = ({ goToLogin }) => {
         </div>
 
         <p className="auth-nav">
-          Đã có tài khoản? <span onClick={goToLogin} style={{ cursor: 'pointer' }}>Đăng nhập ngay</span>
+          Đã có tài khoản?
+          <span
+            onClick={() => {
+              setSubmitted(false);
+              setMessage({ type: '', text: '' });
+              goToLogin();
+            }}
+            style={{ cursor: 'pointer' }}
+          >
+            Đăng nhập ngay
+          </span>
         </p>
       </div>
     </div>
