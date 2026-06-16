@@ -53,9 +53,15 @@ public class AuthServiceImpl implements AuthService {
             TaiKhoan existingUser = existingByUsername.get();
 
             if (existingUser.getTrangThai() == UserStatus.INACTIVE) {
+
+                if (!existingUser.getEmail().equalsIgnoreCase(normalizedEmail)) {
+                    return ApiResponse.error(
+                            400,
+                            "Tên đăng nhập đã tồn tại với email khác!"
+                    );
+                }
                 String newToken = UUID.randomUUID().toString();
 
-                existingUser.setEmail(normalizedEmail);
                 existingUser.setHoTen(request.getHoTen());
                 existingUser.setSoDienThoai(request.getSoDienThoai());
                 existingUser.setVerificationToken(newToken);
@@ -125,8 +131,6 @@ public class AuthServiceImpl implements AuthService {
         }
 
         String token = UUID.randomUUID().toString();
-        // Gửi mail bất đồng bộ (không làm treo ứng dụng)
-        emailService.sendVerificationEmail(request.getEmail(), request.getHoTen(), token);
 
         TaiKhoan tk = new TaiKhoan();
         tk.setTenDangNhap(normalizedUsername);
@@ -148,6 +152,18 @@ public class AuthServiceImpl implements AuthService {
         pq.setTaiKhoan(savedTk);
         pq.setVaiTro(vaiTroUser);
         phanQuyenRepository.save(pq);
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                emailService.sendVerificationEmail(
+                        savedTk.getEmail(),
+                        savedTk.getHoTen(),
+                        token
+                );
+            } catch (Exception e) {
+                System.err.println("Lỗi gửi email kích hoạt nền: " + e.getMessage());
+            }
+        });
 
         UserManagementResponse userDto = modelMapper.map(savedTk, UserManagementResponse.class);
         userDto.setVaiTro(List.of(vaiTroUser.getTenVaiTro()));
@@ -282,7 +298,14 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public ApiResponse<UserManagementResponse> createAdminAccount(RegisterRequest request) {
-        if (taiKhoanRepository.existsByTenDangNhap(request.getTenDangNhap())) return ApiResponse.error(400, "Admin đã tồn tại!");
+        if (taiKhoanRepository.existsByTenDangNhap(request.getTenDangNhap())) {
+            return ApiResponse.error(400, "Tên đăng nhập đã tồn tại!");
+        }
+        if (taiKhoanRepository.findByEmail(
+                request.getEmail().trim().toLowerCase()
+        ).isPresent()) {
+            return ApiResponse.error(400, "Email đã tồn tại!");
+        }
         TaiKhoan admin = new TaiKhoan();
         admin.setTenDangNhap(request.getTenDangNhap());
         admin.setMatKhau(passwordEncoder.encode(request.getMatKhau()));
