@@ -11,16 +11,16 @@ import java.util.Properties;
 @Configuration
 public class MailConfig {
 
-    @Value("${spring.mail.host:smtp.gmail.com}")
+    @Value("${MAIL_HOST:smtp-relay.brevo.com}")
     private String host;
 
-    @Value("${spring.mail.port:587}")
+    @Value("${MAIL_PORT:587}")
     private int port;
 
-    @Value("${spring.mail.username:${MAIL_USERNAME:your-email@gmail.com}}")
+    @Value("${MAIL_USERNAME:}")
     private String username;
 
-    @Value("${spring.mail.password:${MAIL_PASSWORD:your-password}}")
+    @Value("${MAIL_PASSWORD:}")
     private String password;
 
     @Bean
@@ -35,16 +35,9 @@ public class MailConfig {
         Properties props = mailSender.getJavaMailProperties();
         props.put("mail.transport.protocol", "smtp");
         props.put("mail.smtp.auth", "true");
-
-        if (port == 465) {
-            props.put("mail.smtp.ssl.enable", "true");
-            props.put("mail.smtp.starttls.enable", "false");
-        } else {
-            props.put("mail.smtp.starttls.enable", "true");
-            props.put("mail.smtp.starttls.required", "true");
-        }
-
-        props.put("mail.smtp.ssl.trust", "smtp.gmail.com");
+        props.put("mail.smtp.starttls.enable", "true");
+        props.put("mail.smtp.starttls.required", "false");
+        props.put("mail.smtp.ssl.trust", "smtp-relay.brevo.com");
         props.put("mail.smtp.connectiontimeout", "10000");
         props.put("mail.smtp.timeout", "10000");
         props.put("mail.smtp.writetimeout", "10000");

@@ -1,31 +1,24 @@
 package com.traffic.service.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.traffic.dto.response.ReportResponse;
 import com.traffic.service.EmailService;
-import com.traffic.service.TrafficService;
+import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.format.DateTimeFormatter;
-import java.util.Map;
 
 @Service
 public class EmailServiceImpl implements EmailService {
 
     @Autowired
-    private TrafficService trafficService;
+    private JavaMailSender mailSender;
 
-    @Value("${RESEND_API_KEY:}")
-    private String resendApiKey;
-
-    @Value("${MAIL_FROM:Traffic System <onboarding@resend.dev>}")
+    @Value("${MAIL_FROM:Traffic System <phamhoanggiap2k4@gmail.com>}")
     private String mailFrom;
 
     @Value("${APP_BASE_URL:https://traffic-backend-v2.onrender.com}")
@@ -34,43 +27,27 @@ public class EmailServiceImpl implements EmailService {
     @Value("${FRONTEND_URL:https://traffic-system-vn.vercel.app}")
     private String frontendUrl;
 
-    private final HttpClient httpClient = HttpClient.newHttpClient();
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
     private void sendHtmlEmail(String toEmail, String subject, String htmlContent) {
         try {
             if (toEmail == null || toEmail.trim().isEmpty()) {
-                System.err.println("[RESEND] Email nhận rỗng, hủy gửi.");
+                System.err.println("[BREVO] Email nhận rỗng, hủy gửi.");
                 return;
             }
 
-            Map<String, Object> payload = Map.of(
-                    "from", mailFrom,
-                    "to", new String[]{toEmail},
-                    "subject", subject,
-                    "html", htmlContent
-            );
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            String json = objectMapper.writeValueAsString(payload);
+            helper.setFrom(mailFrom);
+            helper.setTo(toEmail);
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true);
 
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://api.resend.com/emails"))
-                    .header("Authorization", "Bearer " + resendApiKey)
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(json))
-                    .build();
+            mailSender.send(message);
 
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-            System.out.println("[RESEND] Status: " + response.statusCode());
-            System.out.println("[RESEND] Body: " + response.body());
-
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new RuntimeException("Resend gửi lỗi: " + response.body());
-            }
+            System.out.println("[BREVO] Gửi email thành công tới: " + toEmail);
         } catch (Exception e) {
             e.printStackTrace();
-            throw new RuntimeException("Gửi email bằng Resend thất bại: " + e.getMessage());
+            throw new RuntimeException("Gửi email bằng Brevo thất bại: " + e.getMessage());
         }
     }
 
