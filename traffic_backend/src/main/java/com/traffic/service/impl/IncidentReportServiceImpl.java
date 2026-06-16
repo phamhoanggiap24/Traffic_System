@@ -28,6 +28,7 @@ import java.util.UUID;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
@@ -291,8 +292,18 @@ public class IncidentReportServiceImpl implements IncidentReportService {
                     emailPayload.setMoTa(saved.getMoTa() + " (Báo cáo đã được hệ thống tự động kiểm tra và phê duyệt thành công dựa trên dữ liệu lưu thông thực tế tại khu vực).");
                 }
 
-                System.out.println("[Auto-Email] Kích hoạt bắn mail tự động duyệt cho sự cố [" + emailPayload.getTenLoaiSuCo() + "] tới: " + user.getEmail());
-                emailService.sendTrafficIncidentAlert(user.getEmail(), emailPayload, tenDuongXacThuc);
+                String toEmail = user.getEmail();
+                String finalTenDuong = tenDuongXacThuc;
+
+                System.out.println("[Auto-Email] Kích hoạt bắn mail tự động duyệt cho sự cố [" + emailPayload.getTenLoaiSuCo() + "] tới: " + toEmail);
+
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        emailService.sendTrafficIncidentAlert(toEmail, emailPayload, finalTenDuong);
+                    } catch (Exception e) {
+                        System.err.println("Lỗi gửi email tự động duyệt báo cáo nền: " + e.getMessage());
+                    }
+                });
 
             } catch (Exception e) {
                 System.err.println("Lỗi luồng đóng gói dữ liệu gửi mail tự động tổng hợp: " + e.getMessage());
@@ -416,8 +427,18 @@ public class IncidentReportServiceImpl implements IncidentReportService {
                         if (isMerged) {
                             emailPayload.setMoTa(bc.getMoTa() + " (Hệ thống đã tự động gộp báo cáo này vào sự cố tương tự đang diễn ra trong phạm vi 50m).");
                         }
-                        System.out.println("[Email-Trigger] Kích hoạt gửi thư duyệt báo cáo thành công tới: " + user.getEmail());
-                        emailService.sendTrafficIncidentAlert(user.getEmail(), emailPayload, tenDuongXacThuc);
+                        String toEmail = user.getEmail();
+                        String finalTenDuong = tenDuongXacThuc;
+
+                        System.out.println("[Email-Trigger] Kích hoạt gửi thư duyệt báo cáo thành công tới: " + toEmail);
+
+                        CompletableFuture.runAsync(() -> {
+                            try {
+                                emailService.sendTrafficIncidentAlert(toEmail, emailPayload, finalTenDuong);
+                            } catch (Exception e) {
+                                System.err.println("Lỗi gửi email duyệt báo cáo nền: " + e.getMessage());
+                            }
+                        });
                     }
                     else if (targetStatus == ReportStatus.SAI_SU_THAT) {
                         // Tạo một tiêu đề/nội dung cảnh cáo tin giả gửi sang mail
@@ -430,7 +451,16 @@ public class IncidentReportServiceImpl implements IncidentReportService {
                         }
                         emailPayload.setMoTa(emailPayload.getMoTa() + " - [Lý do từ chối: Xác định thông tin sai sự thật].");
 
-                        emailService.sendTrafficIncidentAlert(user.getEmail(), emailPayload, tenDuongXacThuc);
+                        String toEmail = user.getEmail();
+                        String finalTenDuong = tenDuongXacThuc;
+
+                        CompletableFuture.runAsync(() -> {
+                            try {
+                                emailService.sendTrafficIncidentAlert(toEmail, emailPayload, finalTenDuong);
+                            } catch (Exception e) {
+                                System.err.println("Lỗi gửi email từ chối báo cáo nền: " + e.getMessage());
+                            }
+                        });
                     }
                 } catch (Exception e) {
                     System.err.println("Lỗi nghiêm trọng trong luồng đóng gói dữ liệu gửi mail: " + e.getMessage());
