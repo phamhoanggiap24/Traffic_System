@@ -89,6 +89,27 @@ public class IncidentReportServiceImpl implements IncidentReportService {
         }
     }
 
+    private String getTrangThaiHienThi(BaoCaoSuCo entity) {
+        if (entity == null || entity.getTrangThai() == null) {
+            return ReportStatus.CHO_XAC_MINH.name();
+        }
+
+        if (entity.getTrangThai() == ReportStatus.NGHI_VAN && entity.getThoiGianBaoCao() != null && entity.getLoaiSuCo() != null) {
+            LocalDateTime now = LocalDateTime.now();
+            long loaiId = entity.getLoaiSuCo().getLoaiSuCoId();
+
+            if ((loaiId == 1 || loaiId == 2) && entity.getThoiGianBaoCao().plusMinutes(30).isBefore(now)) {
+                return "QUA_HAN";
+            }
+
+            if ((loaiId == 3 || loaiId == 4) && entity.getThoiGianBaoCao().plusMinutes(60).isBefore(now)) {
+                return "QUA_HAN";
+            }
+        }
+
+        return entity.getTrangThai().name();
+    }
+
     private ReportResponse mapToDTO(BaoCaoSuCo entity) {
         return ReportResponse.builder()
                 .baoCaoId(entity.getBaoCaoId())
@@ -97,6 +118,7 @@ public class IncidentReportServiceImpl implements IncidentReportService {
                 .kinhDo(entity.getKinhDo())
                 .hinhAnhUrl(entity.getHinhAnhUrl())
                 .trangThai(entity.getTrangThai() != null ? entity.getTrangThai() : ReportStatus.CHO_XAC_MINH)
+                .trangThaiHienThi(getTrangThaiHienThi(entity))
                 .thoiGianBaoCao(entity.getThoiGianBaoCao())
                 .tenLoaiSuCo(entity.getLoaiSuCo() != null ? entity.getLoaiSuCo().getTenLoai() : "N/A")
                 .tenDangNhap(entity.getTaiKhoan() != null ? entity.getTaiKhoan().getTenDangNhap() : "N/A")

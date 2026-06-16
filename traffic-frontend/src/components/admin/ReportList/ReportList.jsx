@@ -38,21 +38,9 @@ const ReportList = ({ setActiveTab }) => {
     return () => clearInterval(interval);
   }, []);
 
-  // Tính trạng thái thực tế dựa theo từng loại sự cố
+  // Trạng thái thực tế dựa theo từng loại sự cố
   const getEffectiveStatus = useCallback((item) => {
-    if (['DA_XAC_MINH', 'SAI_SU_THAT', 'AN_HIEN_THI', 'DA_XOA'].includes(item.trangThai)) {
-      return item.trangThai;
-    }
-    const reportTime = new Date(item.thoiGianBaoCao);
-    const currentTime = new Date();
-    const timeDiffMs = currentTime.getTime() - reportTime.getTime();
-    let expireMinutes = (item.loaiSuCoId === 1 || item.loaiSuCoId === 2) ? 30 : 60;
-    const expireLimit = expireMinutes * 60 * 1000;
-
-    if (item.trangThai === 'NGHI_VAN') {
-      return timeDiffMs > expireLimit ? 'QUA_HAN' : 'NGHI_VAN';
-    }
-    return item.trangThai;
+    return item.trangThaiHienThi || item.trangThai;
   }, []);
 
   // Tải dữ liệu API từ Backend

@@ -24,4 +24,5 @@ public class ReportResponse {
     private LocalDateTime thoiGianBaoCao;
     private String tenLoaiSuCo;
     private String tenDangNhap;
+    private String trangThaiHienThi;
 }
