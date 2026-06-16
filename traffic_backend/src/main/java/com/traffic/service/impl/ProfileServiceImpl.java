@@ -58,7 +58,6 @@ public class ProfileServiceImpl implements ProfileService {
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản"));
 
             tk.setHoTen(request.getHoTen());
-            tk.setEmail(request.getEmail());
             tk.setSoDienThoai(request.getSoDienThoai());
 
             taiKhoanRepository.save(tk);
