@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
@@ -42,19 +43,95 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public ApiResponse<UserManagementResponse> register(RegisterRequest request) {
-        if (taiKhoanRepository.existsByTenDangNhap(request.getTenDangNhap()))
+        String normalizedEmail = request.getEmail().trim().toLowerCase();
+        String normalizedUsername = request.getTenDangNhap().trim();
+
+        Optional<TaiKhoan> existingByUsername =
+                taiKhoanRepository.findByTenDangNhap(normalizedUsername);
+
+        if (existingByUsername.isPresent()) {
+            TaiKhoan existingUser = existingByUsername.get();
+
+            if (existingUser.getTrangThai() == UserStatus.INACTIVE) {
+                String newToken = UUID.randomUUID().toString();
+
+                existingUser.setEmail(normalizedEmail);
+                existingUser.setHoTen(request.getHoTen());
+                existingUser.setSoDienThoai(request.getSoDienThoai());
+                existingUser.setVerificationToken(newToken);
+                existingUser.setTokenCreatedAt(LocalDateTime.now());
+
+                taiKhoanRepository.save(existingUser);
+
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        emailService.sendVerificationEmail(
+                                existingUser.getEmail(),
+                                existingUser.getHoTen(),
+                                newToken
+                        );
+                    } catch (Exception e) {
+                        System.err.println("Lỗi gửi lại email kích hoạt nền: " + e.getMessage());
+                    }
+                });
+
+                UserManagementResponse userDto = modelMapper.map(existingUser, UserManagementResponse.class);
+                userDto.setDoTinCayNguoiDung(existingUser.getDoTinCayNguoiDung());
+
+                return ApiResponse.success(
+                        "Tài khoản chưa kích hoạt. Hệ thống đã gửi lại email xác thực mới.",
+                        userDto
+                );
+            }
+
             return ApiResponse.error(400, "Tên đăng nhập đã tồn tại!");
-        if (taiKhoanRepository.existsByEmail(request.getEmail()))
+        }
+
+        Optional<TaiKhoan> existingByEmail =
+                taiKhoanRepository.findByEmail(normalizedEmail);
+
+        if (existingByEmail.isPresent()) {
+            TaiKhoan existingUser = existingByEmail.get();
+
+            if (existingUser.getTrangThai() == UserStatus.INACTIVE) {
+                String newToken = UUID.randomUUID().toString();
+
+                existingUser.setVerificationToken(newToken);
+                existingUser.setTokenCreatedAt(LocalDateTime.now());
+
+                taiKhoanRepository.save(existingUser);
+
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        emailService.sendVerificationEmail(
+                                existingUser.getEmail(),
+                                existingUser.getHoTen(),
+                                newToken
+                        );
+                    } catch (Exception e) {
+                        System.err.println("Lỗi gửi lại email kích hoạt nền: " + e.getMessage());
+                    }
+                });
+
+                UserManagementResponse userDto = modelMapper.map(existingUser, UserManagementResponse.class);
+                userDto.setDoTinCayNguoiDung(existingUser.getDoTinCayNguoiDung());
+
+                return ApiResponse.success(
+                        "Email đã được đăng ký nhưng tài khoản chưa kích hoạt. Hệ thống đã gửi lại email xác thực mới.",
+                        userDto
+                );
+            }
             return ApiResponse.error(400, "Email đã tồn tại!");
+        }
 
         String token = UUID.randomUUID().toString();
         // Gửi mail bất đồng bộ (không làm treo ứng dụng)
         emailService.sendVerificationEmail(request.getEmail(), request.getHoTen(), token);
 
         TaiKhoan tk = new TaiKhoan();
-        tk.setTenDangNhap(request.getTenDangNhap());
+        tk.setTenDangNhap(normalizedUsername);
         tk.setMatKhau(passwordEncoder.encode(request.getMatKhau()));
-        tk.setEmail(request.getEmail());
+        tk.setEmail(normalizedEmail);
         tk.setHoTen(request.getHoTen());
         tk.setSoDienThoai(request.getSoDienThoai());
         tk.setVerificationToken(token);
@@ -148,6 +225,14 @@ public class AuthServiceImpl implements AuthService {
 
         TaiKhoan tk = taiKhoanOpt.get();
 
+        if (tk.getTrangThai() == UserStatus.INACTIVE) {
+            return ApiResponse.error(403, "Tài khoản chưa được kích hoạt. Vui lòng kiểm tra email kích hoạt trước!");
+        }
+
+        if (tk.getTrangThai() == UserStatus.LOCKED) {
+            return ApiResponse.error(403, "Tài khoản đã bị khóa, không thể khôi phục mật khẩu!");
+        }
+
         String otp = String.valueOf((int) ((Math.random() * 899999) + 100000));
 
         QuenMatKhau qmk = new QuenMatKhau();
@@ -159,7 +244,13 @@ public class AuthServiceImpl implements AuthService {
 
         quenMatKhauRepository.save(qmk);
 
-        emailService.sendOtpPasswordEmail(normalizedEmail, otp);
+        CompletableFuture.runAsync(() -> {
+            try {
+                emailService.sendOtpPasswordEmail(normalizedEmail, otp);
+            } catch (Exception e) {
+                System.err.println("Lỗi gửi email OTP nền: " + e.getMessage());
+            }
+        });
 
         return ApiResponse.success(
                 "Mã OTP đã được gửi đến email của bạn!",
