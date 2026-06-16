@@ -55,9 +55,20 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
   }, [isOpen, currentUser]);
 
   // Xác định tài khoản có phải là Admin không (Sử dụng dữ liệu live nếu có)
-  const userForCheck = liveProfile || currentUser;
-  const isAdminUser = userForCheck?.vaiTro === 'ROLE_ADMIN' || userForCheck?.vaiTro?.toString().includes('ADMIN');
+  const userForCheck = {
+    ...currentUser,
+    ...liveProfile
+  };
 
+  const roles = Array.isArray(userForCheck?.vaiTro)
+    ? userForCheck.vaiTro
+    : [userForCheck?.vaiTro];
+
+  const isAdminUser =
+    userForCheck?.tenDangNhap?.toLowerCase() === 'admin' ||
+    roles.some(role =>
+      role?.toString()?.toUpperCase()?.includes('ADMIN')
+    );
   // HÀM KIỂM TRA ĐỊA CHỈ HỢP LỆ
   const validateFields = (currentData) => {
     const tenTrimmed = currentData.hoTen.trim();
@@ -226,7 +237,7 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
                   type="text"
                   value={
                     isAdminUser
-                      ? '(N/A)'
+                      ? 'N/A'
                       : `${userForCheck?.doTinCayNguoiDung ?? 50}/50`
                   }
                   disabled
@@ -234,7 +245,13 @@ const Profile = ({ isOpen, onClose, currentUser, onUserUpdate }) => {
                     fontWeight: '600',
                     color: isAdminUser
                       ? '#64748b'
-                      : (userForCheck?.doTinCayNguoiDung >= 40 ? '#10b981' : userForCheck?.doTinCayNguoiDung >= 20 ? '#f59e0b' : '#ef4444'),
+                      : (
+                          (userForCheck?.doTinCayNguoiDung ?? 50) >= 40
+                            ? '#10b981'
+                            : (userForCheck?.doTinCayNguoiDung ?? 50) >= 20
+                              ? '#f59e0b'
+                              : '#ef4444'
+                        ),
                     background: '#f8fafc'
                   }}
                 />
