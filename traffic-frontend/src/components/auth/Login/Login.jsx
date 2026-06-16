@@ -7,6 +7,11 @@ const Login = ({ onLoginSuccess, goToRegister, goToForgot }) => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('role');
+
     try {
       const res = await api.post('/auth/login', credentials);
 

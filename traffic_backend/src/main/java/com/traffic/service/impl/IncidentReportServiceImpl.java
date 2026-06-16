@@ -29,7 +29,6 @@ import java.util.UUID;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
@@ -59,8 +58,9 @@ public class IncidentReportServiceImpl implements IncidentReportService {
     // XỬ LÝ LƯU FILE ẢNH MULTIPART VÀO THƯ MỤC CỤC BỘ
     private String saveImageFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            return "";
+            return null;
         }
+
         try {
             Path uploadDir = Paths.get("uploads");
             if (!Files.exists(uploadDir)) {
@@ -68,14 +68,13 @@ public class IncidentReportServiceImpl implements IncidentReportService {
             }
 
             String originalFileName = file.getOriginalFilename();
-            String extension = "";
+            String extension = ".jpg";
+
             if (originalFileName != null && originalFileName.contains(".")) {
                 extension = originalFileName.substring(originalFileName.lastIndexOf("."));
-            } else {
-                extension = ".jpg";
             }
 
-            String fileName = UUID.randomUUID().toString() + extension;
+            String fileName = UUID.randomUUID() + extension;
             Path filePath = uploadDir.resolve(fileName);
 
             try (InputStream inputStream = file.getInputStream()) {
@@ -83,9 +82,10 @@ public class IncidentReportServiceImpl implements IncidentReportService {
             }
 
             return "/uploads/" + fileName;
+
         } catch (IOException e) {
-            System.err.println("Lỗi khi thực hiện lưu file hình ảnh Multipart: " + e.getMessage());
-            return "";
+            System.err.println("Lỗi lưu ảnh: " + e.getMessage());
+            return null;
         }
     }
 
@@ -211,7 +211,9 @@ public class IncidentReportServiceImpl implements IncidentReportService {
         entity.setKinhDo(request.getKinhDo());
 
         String processedUrl = saveImageFile(request.getHinhAnh());
-        entity.setHinhAnhUrl(processedUrl);
+        if (processedUrl != null && !processedUrl.trim().isEmpty()) {
+            entity.setHinhAnhUrl(processedUrl);
+        }
 
         entity.setThoiGianBaoCao(LocalDateTime.now());
         entity.setDoTinCayBaoCao(50);

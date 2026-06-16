@@ -4,6 +4,13 @@ import './ReportList.css';
 import { MapPin, Search, Trash2, AlertTriangle, CheckCircle, RefreshCw, Clock, ChevronDown, Calendar, EyeOff, Image as ImageIcon, X } from 'lucide-react';
 import { formatTimeWithTimezone } from '../../../utils/timeFormatter';
 
+const BACKEND_URL = 'https://traffic-backend-v2.onrender.com';
+const getImageUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http')) return url;
+  return `${BACKEND_URL}${url}`;
+};
+
 const ReportList = ({ setActiveTab }) => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -193,7 +200,7 @@ const ReportList = ({ setActiveTab }) => {
               <X size={24} />
             </button>
             <img
-              src={modalImage.startsWith('http') ? modalImage : `http://localhost:8080${modalImage}`}
+              src={getImageUrl(modalImage)}
               alt="Hình ảnh sự cố đính kèm thực tế"
               onError={(e) => {
                 e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='400'%3E%3Crect fill='%23f0f0f0' width='600' height='400'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='20' fill='%23999' text-anchor='middle' dy='.3em'%3EKhông thể tải hình ảnh%3C/text%3E%3C/svg%3E";

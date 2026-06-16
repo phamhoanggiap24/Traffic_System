@@ -170,7 +170,13 @@ const IncidentPopupContent = ({ data, userRole, fetchAddress, handleAdminAction 
   const isProcessed = currentData.trangThai === 'DA_XAC_MINH' || currentData.trangThai === 'SAI_SU_THAT';
   const isHiddenFromMap = currentData.trangThai === 'AN_HIEN_THI';
 
-  const imageUrl = currentData.hinhAnhUrl ? `${api.defaults.baseURL || 'http://localhost:8080'}${currentData.hinhAnhUrl}` : null;
+  const BACKEND_URL = 'https://traffic-backend-v2.onrender.com';
+  const getImageUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http')) return url;
+    return `${BACKEND_URL}${url}`;
+  };
+  const imageUrl = getImageUrl(currentData.hinhAnhUrl);
 
   return (
     <div className="map-popup-wrapper">
