@@ -50,12 +50,17 @@ const Sidebar = ({ user, activeTab, setActiveTab, onLogout, isOpen, pendingRefre
     if (!isAdmin) return;
 
     const handleUpdateBadge = () => {
-      console.log("Kích hoạt cập nhật số lượng Badge từ Event!");
+      console.log("Refresh pending count...");
       fetchPendingCount();
     };
 
     window.addEventListener('incident-verified', handleUpdateBadge);
-    return () => window.removeEventListener('incident-verified', handleUpdateBadge);
+    window.addEventListener('report-created', handleUpdateBadge);
+
+    return () => {
+      window.removeEventListener('incident-verified', handleUpdateBadge);
+      window.removeEventListener('report-created', handleUpdateBadge);
+    };
   }, [isAdmin]);
 
   useEffect(() => {

@@ -85,6 +85,9 @@ const ReportForm = ({ selectedPoint, onClose }) => {
       const response = await api.post('/report/gui', formData);
 
       if (response.status === 200 || response.status === 201) {
+        window.dispatchEvent(new Event('incident-verified'));
+        window.dispatchEvent(new Event('report-created'));
+
         alert('Gửi báo cáo thành công!');
         onClose();
       }
