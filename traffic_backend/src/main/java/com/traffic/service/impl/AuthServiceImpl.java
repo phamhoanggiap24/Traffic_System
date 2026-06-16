@@ -134,7 +134,13 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public ApiResponse<ResetPasswordResponse> forgotPassword(String email) {
-        Optional<TaiKhoan> taiKhoanOpt = taiKhoanRepository.findByEmail(email);
+        if (email == null || email.trim().isEmpty()) {
+            return ApiResponse.error(400, "Vui lòng nhập email!");
+        }
+
+        String normalizedEmail = email.trim().toLowerCase();
+
+        Optional<TaiKhoan> taiKhoanOpt = taiKhoanRepository.findByEmail(normalizedEmail);
 
         if (taiKhoanOpt.isEmpty()) {
             return ApiResponse.error(404, "Email không tồn tại trong hệ thống!");
@@ -145,7 +151,7 @@ public class AuthServiceImpl implements AuthService {
         String otp = String.valueOf((int) ((Math.random() * 899999) + 100000));
 
         QuenMatKhau qmk = new QuenMatKhau();
-        qmk.setEmail(email);
+        qmk.setEmail(normalizedEmail);
         qmk.setOtpCode(otp);
         qmk.setThoiGianHetHan(LocalDateTime.now().plusMinutes(5));
         qmk.setDaSuDung(false);
@@ -153,12 +159,12 @@ public class AuthServiceImpl implements AuthService {
 
         quenMatKhauRepository.save(qmk);
 
-        emailService.sendOtpPasswordEmail(email, otp);
+        emailService.sendOtpPasswordEmail(normalizedEmail, otp);
 
         return ApiResponse.success(
                 "Mã OTP đã được gửi đến email của bạn!",
                 ResetPasswordResponse.builder()
-                        .email(email)
+                        .email(normalizedEmail)
                         .thoiGianHetHan(qmk.getThoiGianHetHan())
                         .build()
         );
