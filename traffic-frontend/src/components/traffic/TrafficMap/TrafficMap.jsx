@@ -283,6 +283,8 @@ const TrafficMap = () => {
   const [activeRouteIndex, setActiveRouteIndex] = useState(0);
   const [, setTimeUpdate] = useState(0);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [mapZoom, setMapZoom] = useState(13);
+  const MIN_INCIDENT_ZOOM = 12;
 
   const [activeInput, setActiveInput] = useState('start');
   const activeInputRef = useRef('start');
@@ -599,6 +601,9 @@ const TrafficMap = () => {
         const addr = await fetchAddress(wrapped.lat, wrapped.lng);
         setSelectedPoint({ lat: wrapped.lat, lng: wrapped.lng, address: addr });
       },
+      zoomend: (e) => {
+        setMapZoom(e.target.getZoom());
+      },
       locationfound: async (e) => {
         const wrapped = e.latlng.wrap();
 
@@ -762,8 +767,8 @@ const TrafficMap = () => {
           </Marker>
         )}
 
-        {/* ĐÃ CẬP NHẬT: Nhúng hàm filterDuplicateIncidentsByRadius làm bộ lọc lớp đầu tiên trước khi duyệt map */}
-        {filterDuplicateIncidentsByRadius(incidents)
+        {/* Nhúng hàm filterDuplicateIncidentsByRadius làm bộ lọc lớp đầu tiên trước khi duyệt map */}
+        {mapZoom >= MIN_INCIDENT_ZOOM && filterDuplicateIncidentsByRadius(incidents)
           .filter(i => {
             if (['SAI_SU_THAT', 'AN_HIEN_THI', 'DA_XOA', 'QUA_HAN'].includes(i.trangThai)) return false;
 
