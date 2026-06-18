@@ -20,7 +20,7 @@ public class TrafficDataScheduler {
     @Autowired
     private TrafficService trafficService;
 
-    @Scheduled(fixedRate = 900000)
+    @Scheduled(fixedRate = 300000)
     public void autoFetchAndSaveTrafficData() {
         log.info("[CRON JOB] Bắt đầu chu kỳ quét tọa độ đồng bộ dữ liệu.");
 
