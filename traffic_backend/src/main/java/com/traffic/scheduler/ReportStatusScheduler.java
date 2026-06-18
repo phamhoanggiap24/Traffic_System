@@ -34,7 +34,7 @@ public class ReportStatusScheduler {
     @Autowired
     private TrafficService trafficService;
 
-    @Scheduled(fixedRate = 300000)
+    @Scheduled(fixedRate = 60000)
     @Transactional
     public void processAutoVerifyAndExpired() {
         LocalDateTime now = LocalDateTime.now();

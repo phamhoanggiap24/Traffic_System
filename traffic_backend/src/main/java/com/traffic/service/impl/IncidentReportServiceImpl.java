@@ -98,11 +98,11 @@ public class IncidentReportServiceImpl implements IncidentReportService {
             LocalDateTime now = LocalDateTime.now();
             long loaiId = entity.getLoaiSuCo().getLoaiSuCoId();
 
-            if ((loaiId == 1 || loaiId == 2) && entity.getThoiGianBaoCao().plusMinutes(30).isBefore(now)) {
+            if ((loaiId == 1 || loaiId == 2) && entity.getThoiGianBaoCao().plusMinutes(5).isBefore(now)) {
                 return "QUA_HAN";
             }
 
-            if ((loaiId == 3 || loaiId == 4) && entity.getThoiGianBaoCao().plusMinutes(60).isBefore(now)) {
+            if ((loaiId == 3 || loaiId == 4) && entity.getThoiGianBaoCao().plusMinutes(5).isBefore(now)) {
                 return "QUA_HAN";
             }
         }
@@ -140,10 +140,10 @@ public class IncidentReportServiceImpl implements IncidentReportService {
                 long loaiId = bc.getLoaiSuCo().getLoaiSuCoId();
                 boolean conHan = false;
 
-                if ((loaiId == 1 || loaiId == 2) && bc.getThoiGianBaoCao().plusHours(3).isAfter(now)) {
+                if ((loaiId == 1 || loaiId == 2) && bc.getThoiGianBaoCao().plusMinutes(10).isAfter(now)) {
                     conHan = true;
                 }
-                else if ((loaiId == 3 || loaiId == 4) && bc.getThoiGianBaoCao().plusDays(1).isAfter(now)) {
+                else if ((loaiId == 3 || loaiId == 4) && bc.getThoiGianBaoCao().plusMinutes(15).isAfter(now)) {
                     conHan = true;
                 }
 
@@ -191,10 +191,10 @@ public class IncidentReportServiceImpl implements IncidentReportService {
                 long loaiId = bc.getLoaiSuCo().getLoaiSuCoId();
                 boolean conHan = false;
 
-                if ((loaiId == 1 || loaiId == 2) && bc.getThoiGianBaoCao().plusHours(3).isAfter(now)) {
+                if ((loaiId == 1 || loaiId == 2) && bc.getThoiGianBaoCao().plusMinutes(10).isAfter(now)) {
                     conHan = true;
                 }
-                else if ((loaiId == 3 || loaiId == 4) && bc.getThoiGianBaoCao().plusDays(1).isAfter(now)) {
+                else if ((loaiId == 3 || loaiId == 4) && bc.getThoiGianBaoCao().plusMinutes(15).isAfter(now)) {
                     conHan = true;
                 }
 
@@ -509,8 +509,8 @@ public class IncidentReportServiceImpl implements IncidentReportService {
 
         // Tính toán mốc thời gian cố định bằng Java
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime timeLimit30 = now.minusMinutes(30);
-        LocalDateTime timeLimit60 = now.minusMinutes(60);
+        LocalDateTime timeLimit30 = now.minusMinutes(5);
+        LocalDateTime timeLimit60 = now.minusMinutes(5);
 
         // LỌC TÌM KIẾM THEO TAB "QUÁ HẠN" ảo
         if ("QUA_HAN".equals(status)) {
@@ -568,8 +568,8 @@ public class IncidentReportServiceImpl implements IncidentReportService {
 
         // TÍNH TOÁN MỐC THỜI GIAN TRƯỚC KHI TRUYỀN VÀO REPOSITORY JPQL
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime timeLimit30 = now.minusMinutes(30);
-        LocalDateTime timeLimit60 = now.minusMinutes(60);
+        LocalDateTime timeLimit30 = now.minusMinutes(5);
+        LocalDateTime timeLimit60 = now.minusMinutes(5);
 
         Page<BaoCaoSuCo> expiredPage = baoCaoSuCoRepository.findExpiredReports(
                 loaiSuCoId, tenDangNhap, start, end, timeLimit30, timeLimit60, pageable

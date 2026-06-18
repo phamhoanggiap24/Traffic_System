@@ -80,16 +80,16 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             "(:tenDangNhap IS NULL OR :tenDangNhap = '' OR b.taiKhoan.tenDangNhap LIKE CONCAT('%', :tenDangNhap, '%')) AND " +
             "(:start IS NULL OR b.thoiGianBaoCao BETWEEN :start AND :end) AND " +
             "b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN AND (" +
-            "  (b.loaiSuCo.loaiSuCoId IN (1, 2) AND b.thoiGianBaoCao < :timeLimit30) OR " +
-            "  (b.loaiSuCo.loaiSuCoId IN (3, 4) AND b.thoiGianBaoCao < :timeLimit60)" +
+            "  (b.loaiSuCo.loaiSuCoId IN (1, 2) AND b.thoiGianBaoCao < :timeLimit5) OR " +
+            "  (b.loaiSuCo.loaiSuCoId IN (3, 4) AND b.thoiGianBaoCao < :timeLimit5)" +
             ")")
     Page<BaoCaoSuCo> findExpiredReports(
             @Param("loaiSuCoId") Integer loaiSuCoId,
             @Param("tenDangNhap") String tenDangNhap,
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end,
-            @Param("timeLimit30") LocalDateTime timeLimit30,
-            @Param("timeLimit60") LocalDateTime timeLimit60,
+            @Param("timeLimit5") LocalDateTime timeLimit30,
+            @Param("timeLimit5") LocalDateTime timeLimit60,
             Pageable pageable
     );
 
@@ -98,16 +98,16 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
             "(:tenDangNhap IS NULL OR :tenDangNhap = '' OR b.taiKhoan.tenDangNhap LIKE CONCAT('%', :tenDangNhap, '%')) AND " +
             "(:start IS NULL OR b.thoiGianBaoCao BETWEEN :start AND :end) AND " +
             "b.trangThai = com.traffic.common.ReportStatus.NGHI_VAN AND (" +
-            "  (b.loaiSuCo.loaiSuCoId IN (1, 2) AND b.thoiGianBaoCao >= :timeLimit30) OR " +
-            "  (b.loaiSuCo.loaiSuCoId IN (3, 4) AND b.thoiGianBaoCao >= :timeLimit60)" +
+            "  (b.loaiSuCo.loaiSuCoId IN (1, 2) AND b.thoiGianBaoCao >= :timeLimit5) OR " +
+            "  (b.loaiSuCo.loaiSuCoId IN (3, 4) AND b.thoiGianBaoCao >= :timeLimit5)" +
             ")")
     Page<BaoCaoSuCo> findActiveSuspectReports(
             @Param("loaiSuCoId") Integer loaiSuCoId,
             @Param("tenDangNhap") String tenDangNhap,
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end,
-            @Param("timeLimit30") LocalDateTime timeLimit30,
-            @Param("timeLimit60") LocalDateTime timeLimit60,
+            @Param("timeLimit5") LocalDateTime timeLimit30,
+            @Param("timeLimit5") LocalDateTime timeLimit60,
             Pageable pageable
     );
 
@@ -115,12 +115,12 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
     @Query(value = "SELECT COUNT(*) FROM bao_cao_su_co b " +
             "WHERE b.trang_thai != 'DA_XOA' AND (" +
             "  (b.trang_thai = 'CHO_XAC_MINH' AND (" +
-            "    (b.loai_su_co_id IN (1, 2) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) <= 30) OR " +
-            "    (b.loai_su_co_id IN (3, 4) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) <= 60)" +
+            "    (b.loai_su_co_id IN (1, 2) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) <= 5) OR " +
+            "    (b.loai_su_co_id IN (3, 4) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) <= 5)" +
             "  )) OR " +
             "  (b.trang_thai = 'NGHI_VAN' AND (" +
-            "    (b.loai_su_co_id IN (1, 2) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) <= 30) OR " +
-            "    (b.loai_su_co_id IN (3, 4) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) <= 60)" +
+            "    (b.loai_su_co_id IN (1, 2) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) <= 5) OR " +
+            "    (b.loai_su_co_id IN (3, 4) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) <= 5)" +
             "  ))" +
             ")", nativeQuery = true)
     long countPendingReports(@Param("now") LocalDateTime now);
@@ -186,8 +186,8 @@ public interface BaoCaoSuCoRepository extends JpaRepository<BaoCaoSuCo, Long> {
 
     // REFACTOR TO NATIVE: Khắc phục lỗi phân tích cú pháp cho Scheduler tự động duyệt bài overdue
     @Query(value = "SELECT b.* FROM bao_cao_su_co b WHERE b.trang_thai = 'CHO_XAC_MINH' AND (" +
-            "  (b.loai_su_co_id IN (1, 2) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) > 30) OR " +
-            "  (b.loai_su_co_id IN (3, 4) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) > 60)" +
+            "  (b.loai_su_co_id IN (1, 2) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) > 5) OR " +
+            "  (b.loai_su_co_id IN (3, 4) AND TIMESTAMPDIFF(MINUTE, b.thoi_gian_bao_cao, :now) > 5)" +
             ")", nativeQuery = true)
     List<BaoCaoSuCo> findPendingReportsOverdue(@Param("now") LocalDateTime now);
 

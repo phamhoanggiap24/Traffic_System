@@ -131,8 +131,6 @@ const filterDuplicateIncidentsByRadius = (rawIncidents) => {
   return uniqueIncidents;
 };
 
-// =====================================================================================
-
 const IncidentPopupContent = ({ data, userRole, fetchAddress, handleAdminAction }) => {
   const [address, setAddress] = useState("Đang xác định vị trí...");
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -161,9 +159,9 @@ const IncidentPopupContent = ({ data, userRole, fetchAddress, handleAdminAction 
   const reportTime = currentData.thoiGianBaoCao ? new Date(currentData.thoiGianBaoCao).getTime() : new Date().getTime();
   const currentTime = new Date().getTime();
 
-  let expireMinutes = 60;
+  let expireMinutes = 5;
   if (currentData.loaiSuCoId === 1 || currentData.loaiSuCoId === 2) {
-    expireMinutes = 30;
+    expireMinutes = 5;
   }
   const isTimeOut = (currentTime - reportTime) > (expireMinutes * 60 * 1000);
   const isExpired = (isTimeOut && (currentData.trangThai === 'CHO_XAC_MINH' || currentData.trangThai === 'NGHI_VAN')) || currentData.trangThai === 'QUA_HAN';
@@ -806,9 +804,9 @@ const TrafficMap = () => {
               const rTime = new Date(i.thoiGianBaoCao).getTime();
               const cTime = new Date().getTime();
 
-              let limitMinutes = 60;
+              let limitMinutes = 15;
               if (i.loaiSuCoId === 1 || i.loaiSuCoId === 2) {
-                limitMinutes = 30;
+                limitMinutes = 10;
               }
               if ((cTime - rTime) > (limitMinutes * 60 * 1000)) {
                 return false;
