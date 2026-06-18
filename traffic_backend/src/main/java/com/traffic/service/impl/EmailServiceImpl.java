@@ -125,4 +125,36 @@ public class EmailServiceImpl implements EmailService {
 
         sendHtmlEmail(toEmail, "Cảnh báo sự cố giao thông", htmlContent);
     }
+
+    @Override
+    @Async
+    public void sendNearbyIncidentAlert(String toEmail, String hoTen, ReportResponse report, String tenDuong) {
+        String formattedTime = report.getThoiGianBaoCao() != null
+                ? report.getThoiGianBaoCao().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"))
+                : "Vừa xong";
+
+        String linkWebsite = frontendUrl + "/map?lat=" + report.getViDo() + "&lng=" + report.getKinhDo();
+
+        String htmlContent =
+                "<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border:1px solid #e5e7eb; border-radius:8px; overflow:hidden;'>"
+                        + "<div style='background:#dc2626;color:white;padding:20px;text-align:center;'>"
+                        + "<h2 style='margin:0;'>CẢNH BÁO SỰ CỐ GẦN BẠN</h2>"
+                        + "</div>"
+                        + "<div style='padding:20px;color:#111827;line-height:1.6;'>"
+                        + "<p>Xin chào <b>" + (hoTen != null ? hoTen : "người dùng") + "</b>,</p>"
+                        + "<p>Hệ thống phát hiện một sự cố giao thông đã được xác minh gần vị trí của bạn.</p>"
+                        + "<table style='width:100%;border-collapse:collapse;margin:20px 0;'>"
+                        + "<tr><td style='font-weight:bold;padding:8px 0;'>Loại sự cố:</td><td>" + report.getTenLoaiSuCo() + "</td></tr>"
+                        + "<tr><td style='font-weight:bold;padding:8px 0;'>Vị trí:</td><td><a href='" + linkWebsite + "'>" + tenDuong + "</a></td></tr>"
+                        + "<tr><td style='font-weight:bold;padding:8px 0;'>Thời gian:</td><td>" + formattedTime + "</td></tr>"
+                        + "<tr><td style='font-weight:bold;padding:8px 0;'>Mô tả:</td><td>" + (report.getMoTa() != null ? report.getMoTa() : "Không có mô tả") + "</td></tr>"
+                        + "</table>"
+                        + "<div style='text-align:center;margin:25px 0;'>"
+                        + "<a href='" + linkWebsite + "' style='background:#2563eb;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;'>Xem vị trí sự cố</a>"
+                        + "</div>"
+                        + "</div>"
+                        + "</div>";
+
+        sendHtmlEmail(toEmail, "Cảnh báo sự cố giao thông gần bạn", htmlContent);
+    }
 }

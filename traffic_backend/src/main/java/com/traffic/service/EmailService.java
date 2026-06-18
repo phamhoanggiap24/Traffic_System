@@ -6,4 +6,5 @@ public interface EmailService {
     void sendTrafficIncidentAlert(String toEmail, ReportResponse report, String tenDuong);
     void sendVerificationEmail(String toEmail, String hoTen, String token);
     void sendOtpPasswordEmail(String toEmail, String otpCode);
+    void sendNearbyIncidentAlert(String toEmail, String hoTen, ReportResponse report, String tenDuong);
 }

@@ -646,9 +646,8 @@ public class IncidentReportServiceImpl implements IncidentReportService {
             CanhBao cb = new CanhBao();
             cb.setTaiKhoan(receiver);
             cb.setBaoCaoSuCo(bc);
-            cb.setNoiDung("Có sự cố [" + tenLoai + "] vừa được xác minh trong phạm vi "
-                    + (option.getBanKinhCanhBao() != null ? option.getBanKinhCanhBao().intValue() : 100)
-                    + "m gần vị trí của bạn.");
+            cb.setNoiDung("Hệ thống phát hiện sự cố giao thông [" + tenLoai
+                    + "] vừa được xác minh gần vị trí của bạn. Vui lòng chú ý khi di chuyển.");
             cb.setLoaiCanhBao("SU_CO_GAN_BAN");
             cb.setKenhGui("APP");
             cb.setTrangThai(ReadStatus.CHUA_DOC);
@@ -659,10 +658,17 @@ public class IncidentReportServiceImpl implements IncidentReportService {
             if (receiver.getEmail() != null && !receiver.getEmail().trim().isEmpty()) {
                 ReportResponse emailPayload = mapToDTO(bc);
                 String toEmail = receiver.getEmail();
+                String hoTenNhan = receiver.getHoTen() != null ? receiver.getHoTen() : receiver.getTenDangNhap();
 
                 CompletableFuture.runAsync(() -> {
                     try {
-                        emailService.sendTrafficIncidentAlert(toEmail, emailPayload, "Vị trí gần bạn");
+                        String tenDuong = trafficService.getStreetName(bc.getViDo(), bc.getKinhDo());
+
+                        if (tenDuong == null || tenDuong.trim().isEmpty()) {
+                            tenDuong = "Vị trí đã ghim trên hệ thống";
+                        }
+
+                        emailService.sendNearbyIncidentAlert(toEmail, hoTenNhan, emailPayload, tenDuong);
                     } catch (Exception e) {
                         System.err.println("Lỗi gửi email cảnh báo gần user: " + e.getMessage());
                     }
