@@ -29,7 +29,8 @@ api.interceptors.response.use(
       requestUrl.includes('/auth/forgot-password') ||
       requestUrl.includes('/auth/reset-password') ||
       requestUrl.includes('/auth/verify') ||
-      requestUrl.includes('/auth/refresh-token');
+      requestUrl.includes('/auth/refresh-token') ||
+      requestUrl.includes('/profile/location');
 
     if ((status === 401 || status === 403) && !isAuthRequest) {
       console.warn('Phiên đăng nhập không hợp lệ:', status);

@@ -620,11 +620,16 @@ const TrafficMap = () => {
       },
       locationfound: async (e) => {
         const wrapped = e.latlng.wrap();
+        const token = localStorage.getItem('accessToken');
 
-        api.post('/profile/location', {
-          viDo: wrapped.lat,
-          kinhDo: wrapped.lng
-        }).catch(() => {});
+        if (token) {
+          api.post('/profile/location', {
+            viDo: wrapped.lat,
+            kinhDo: wrapped.lng
+          }).catch((err) => {
+            console.warn('Không cập nhật được vị trí:', err.response?.status);
+          });
+        }
 
         // Mặc định ban đầu: Di chuyển tâm về vị trí hiện tại của user, không sinh popup, giữ nguyên độ rộng zoom
         if (isFirstLoad) {

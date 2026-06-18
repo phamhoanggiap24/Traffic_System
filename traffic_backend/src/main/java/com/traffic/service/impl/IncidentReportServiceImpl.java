@@ -553,9 +553,9 @@ public class IncidentReportServiceImpl implements IncidentReportService {
     @Override
     public List<ReportResponse> getPublicMapReports() {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime threeHoursAgo = now.minusHours(3);
-        LocalDateTime oneDayAgo = now.minusDays(1);
-        return baoCaoSuCoRepository.findActiveReportsForMap(threeHoursAgo, oneDayAgo)
+        LocalDateTime tenMinutesAgo = now.minusMinutes(10);
+        LocalDateTime fifteenMinutesAgo = now.minusMinutes(15);
+        return baoCaoSuCoRepository.findActiveReportsForMap(tenMinutesAgo, fifteenMinutesAgo)
                 .stream().map(this::mapToDTO).collect(Collectors.toList());
     }
 
