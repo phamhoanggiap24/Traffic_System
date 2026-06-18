@@ -4,7 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './TrafficMap.css';
 import ReactDOM from 'react-dom';
-import { Navigation, Search, CheckCircle, Trash2, AlertTriangle, XCircle, MapPin, EyeOff, Image } from 'lucide-react';
+import { Navigation, Search, CheckCircle, Trash2, AlertTriangle, XCircle, MapPin, EyeOff, Image, X } from 'lucide-react';
 import ReportForm from '../../user/ReportForm/ReportForm';
 import api from '../../../api/axiosConfig';
 
@@ -296,6 +296,22 @@ const TrafficMap = () => {
 
   const debounceTimer = useRef(null);
   const polylineRefs = useRef({});
+
+  const clearStartPoint = () => {
+    setStartSearch('');
+    setStartPoint(null);
+    setRoutesData([]);
+    setActiveRouteIndex(0);
+    setSuggestions({ type: '', data: [] });
+  };
+
+  const clearEndPoint = () => {
+    setEndSearch('');
+    setEndPoint(null);
+    setRoutesData([]);
+    setActiveRouteIndex(0);
+    setSuggestions({ type: '', data: [] });
+  };
 
   const userRole = useMemo(() => {
     try {
@@ -669,6 +685,13 @@ const TrafficMap = () => {
               onChange={(e) => handleInputChange(e.target.value, 'start')}
               onKeyDown={(e) => e.key === 'Enter' && handleSearchLocation(startSearch, 'start')}
             />
+
+            {startSearch && (
+              <button type="button" className="clear-search-btn" onClick={clearStartPoint}>
+                <X size={14} />
+              </button>
+            )}
+
             <button onClick={() => handleSearchLocation(startSearch, 'start')} className="inner-search-btn">
               <Search size={16} />
             </button>
@@ -693,6 +716,13 @@ const TrafficMap = () => {
               onChange={(e) => handleInputChange(e.target.value, 'end')}
               onKeyDown={(e) => e.key === 'Enter' && handleSearchLocation(endSearch, 'end')}
             />
+
+            {endSearch && (
+              <button type="button" className="clear-search-btn" onClick={clearEndPoint}>
+                <X size={14} />
+              </button>
+            )}
+
             <button onClick={() => handleSearchLocation(endSearch, 'end')} className="inner-search-btn">
               <Search size={16} />
             </button>

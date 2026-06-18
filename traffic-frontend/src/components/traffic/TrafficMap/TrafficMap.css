@@ -442,3 +442,20 @@
 
   box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
+/* Nút X thanh tìm kiếm */
+.clear-search-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  margin-right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.clear-search-btn:hover {
+  color: #ef4444;
+  transform: scale(1.1);
+}
