@@ -3,6 +3,8 @@ package com.traffic.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "tuy_chon_ca_nhan")
 @Data
@@ -18,4 +20,8 @@ public class TuyChonCaNhan {
     private Integer nguongUnTac;
     private Boolean nhanThongBao;
     private Float banKinhCanhBao;
+
+    private Double viDoHienTai;
+    private Double kinhDoHienTai;
+    private LocalDateTime thoiGianCapNhatViTri;
 }

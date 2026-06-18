@@ -55,6 +55,9 @@ public class IncidentReportServiceImpl implements IncidentReportService {
     @Autowired
     private EmailService emailService;
 
+    @Autowired
+    private TuyChonCaNhanRepository tuyChonCaNhanRepository;
+
     // XỬ LÝ LƯU FILE ẢNH MULTIPART VÀO THƯ MỤC CỤC BỘ
     private String saveImageFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
@@ -287,6 +290,9 @@ public class IncidentReportServiceImpl implements IncidentReportService {
         }
 
         BaoCaoSuCo saved = baoCaoSuCoRepository.save(entity);
+        if (saved.getTrangThai() == ReportStatus.DA_XAC_MINH) {
+            notifyNearbyUsers(saved);
+        }
         TaiKhoan user = saved.getTaiKhoan();
 
         // LUỒNG TỰ ĐỘNG GỬI EMAIL PHẢN HỒI KHI ĐƯỢC HỆ THỐNG XÁC THỰC THÀNH CÔNG (CHỈ GỬI KHI ĐÃ XÁC MINH)
@@ -378,6 +384,9 @@ public class IncidentReportServiceImpl implements IncidentReportService {
             taiKhoanRepository.save(user);
         }
         baoCaoSuCoRepository.save(bc);
+        if (targetStatus == ReportStatus.DA_XAC_MINH) {
+            notifyNearbyUsers(bc);
+        }
 
         // TỰ ĐỘNG LƯU VẾT VÀO NHẬT KÝ XÁC MINH
         try {
@@ -615,5 +624,50 @@ public class IncidentReportServiceImpl implements IncidentReportService {
             return true;
         }
         return false;
+    }
+
+    private void notifyNearbyUsers(BaoCaoSuCo bc) {
+        if (bc == null || bc.getViDo() == null || bc.getKinhDo() == null) return;
+
+        List<TuyChonCaNhan> nearbyUsers =
+                tuyChonCaNhanRepository.findUsersNearIncident(bc.getViDo(), bc.getKinhDo());
+
+        String tenLoai = bc.getLoaiSuCo() != null ? bc.getLoaiSuCo().getTenLoai() : "Sự cố giao thông";
+
+        for (TuyChonCaNhan option : nearbyUsers) {
+            TaiKhoan receiver = option.getTaiKhoan();
+            if (receiver == null) continue;
+
+            if (bc.getTaiKhoan() != null &&
+                    receiver.getTaiKhoanId().equals(bc.getTaiKhoan().getTaiKhoanId())) {
+                continue;
+            }
+
+            CanhBao cb = new CanhBao();
+            cb.setTaiKhoan(receiver);
+            cb.setBaoCaoSuCo(bc);
+            cb.setNoiDung("Có sự cố [" + tenLoai + "] vừa được xác minh trong phạm vi "
+                    + (option.getBanKinhCanhBao() != null ? option.getBanKinhCanhBao().intValue() : 100)
+                    + "m gần vị trí của bạn.");
+            cb.setLoaiCanhBao("SU_CO_GAN_BAN");
+            cb.setKenhGui("APP");
+            cb.setTrangThai(ReadStatus.CHUA_DOC);
+            cb.setThoiGianGui(LocalDateTime.now());
+
+            canhBaoRepository.save(cb);
+
+            if (receiver.getEmail() != null && !receiver.getEmail().trim().isEmpty()) {
+                ReportResponse emailPayload = mapToDTO(bc);
+                String toEmail = receiver.getEmail();
+
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        emailService.sendTrafficIncidentAlert(toEmail, emailPayload, "Vị trí gần bạn");
+                    } catch (Exception e) {
+                        System.err.println("Lỗi gửi email cảnh báo gần user: " + e.getMessage());
+                    }
+                });
+            }
+        }
     }
 }

@@ -4,6 +4,10 @@ import com.traffic.common.ApiResponse;
 import com.traffic.dto.request.ChangePasswordRequest;
 import com.traffic.dto.request.UpdateProfileRequest;
 import com.traffic.entity.TaiKhoan;
+import com.traffic.dto.request.UpdateLocationRequest;
+import com.traffic.entity.TuyChonCaNhan;
+import com.traffic.repository.TuyChonCaNhanRepository;
+import java.time.LocalDateTime;
 import com.traffic.repository.TaiKhoanRepository;
 import com.traffic.service.ProfileService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +22,9 @@ public class ProfileServiceImpl implements ProfileService {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private TuyChonCaNhanRepository tuyChonCaNhanRepository;
 
     @Override
     public ApiResponse<TaiKhoan> getProfileInfo(String username) {
@@ -64,6 +71,34 @@ public class ProfileServiceImpl implements ProfileService {
             return new ApiResponse<>(200, "Cập nhật thông tin thành công!", "OK");
         } catch (Exception e) {
             return new ApiResponse<>(500, "Lỗi khi cập nhật: " + e.getMessage(), null);
+        }
+    }
+
+    @Override
+    public ApiResponse<String> updateCurrentLocation(String username, UpdateLocationRequest request) {
+        try {
+            TaiKhoan tk = taiKhoanRepository.findByTenDangNhap(username)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản"));
+
+            TuyChonCaNhan option = tuyChonCaNhanRepository
+                    .findByTaiKhoanTaiKhoanId(tk.getTaiKhoanId())
+                    .orElseGet(() -> {
+                        TuyChonCaNhan t = new TuyChonCaNhan();
+                        t.setTaiKhoan(tk);
+                        t.setNhanThongBao(true);
+                        t.setBanKinhCanhBao(100f);
+                        return t;
+                    });
+
+            option.setViDoHienTai(request.getViDo());
+            option.setKinhDoHienTai(request.getKinhDo());
+            option.setThoiGianCapNhatViTri(LocalDateTime.now());
+
+            tuyChonCaNhanRepository.save(option);
+
+            return new ApiResponse<>(200, "Cập nhật vị trí thành công", "OK");
+        } catch (Exception e) {
+            return new ApiResponse<>(500, "Lỗi cập nhật vị trí: " + e.getMessage(), null);
         }
     }
 }

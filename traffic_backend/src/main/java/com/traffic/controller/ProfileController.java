@@ -2,6 +2,7 @@ package com.traffic.controller;
 
 import com.traffic.common.ApiResponse;
 import com.traffic.dto.request.ChangePasswordRequest;
+import com.traffic.dto.request.UpdateLocationRequest;
 import com.traffic.dto.request.UpdateProfileRequest;
 import com.traffic.entity.TaiKhoan;
 import com.traffic.service.ProfileService;
@@ -18,7 +19,7 @@ public class ProfileController {
     @Autowired
     private ProfileService profileService;
 
-    // 🚀 1. BỔ SUNG ĐƯỜNG DẪN: Lấy thông tin cá nhân Real-time phục vụ React hiển thị điểm uy tín
+    // 1. BỔ SUNG ĐƯỜNG DẪN: Lấy thông tin cá nhân Real-time phục vụ React hiển thị điểm uy tín
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<TaiKhoan>> getMyProfile() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -43,7 +44,7 @@ public class ProfileController {
         return ResponseEntity.status(response.getStatus()).body(response);
     }
 
-    // 🔒 2. ĐÃ BẢO MẬT LẠI: Cập nhật thông tin cá nhân
+    // 2. ĐÃ BẢO MẬT LẠI: Cập nhật thông tin cá nhân
     @PutMapping("/update-info")
     public ResponseEntity<ApiResponse<String>> updateInfo(@RequestBody UpdateProfileRequest request) {
         // Bảo mật: Lấy từ Token chứ không lấy qua request.getTenDangNhap() nữa
@@ -58,7 +59,7 @@ public class ProfileController {
         return ResponseEntity.status(response.getStatus()).body(response);
     }
 
-    // 🔒 3. ĐÃ BẢO MẬT LẠI: API Đổi mật khẩu
+    // 3. ĐÃ BẢO MẬT LẠI: API Đổi mật khẩu
     @PostMapping("/change-password")
     public ResponseEntity<ApiResponse<String>> doiMatKhau(@RequestBody ChangePasswordRequest request) {
         // Bảo mật: Lấy từ Token để chặn hành vi đổi trộm mật khẩu người khác
@@ -70,6 +71,15 @@ public class ProfileController {
         }
 
         ApiResponse<String> response = profileService.doiMatKhau(username, request);
+        return ResponseEntity.status(response.getStatus()).body(response);
+    }
+
+    @PostMapping("/location")
+    public ResponseEntity<ApiResponse<String>> updateLocation(
+            Authentication authentication,
+            @RequestBody UpdateLocationRequest request
+    ) {
+        ApiResponse<String> response = profileService.updateCurrentLocation(authentication.getName(), request);
         return ResponseEntity.status(response.getStatus()).body(response);
     }
 }

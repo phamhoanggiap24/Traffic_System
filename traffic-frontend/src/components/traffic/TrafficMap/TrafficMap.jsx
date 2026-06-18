@@ -621,6 +621,11 @@ const TrafficMap = () => {
       locationfound: async (e) => {
         const wrapped = e.latlng.wrap();
 
+        api.post('/profile/location', {
+          viDo: wrapped.lat,
+          kinhDo: wrapped.lng
+        }).catch(() => {});
+
         // Mặc định ban đầu: Di chuyển tâm về vị trí hiện tại của user, không sinh popup, giữ nguyên độ rộng zoom
         if (isFirstLoad) {
           mapRef.current.panTo(wrapped);
