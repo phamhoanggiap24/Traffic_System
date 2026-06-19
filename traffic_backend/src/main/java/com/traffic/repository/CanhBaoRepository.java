@@ -25,4 +25,10 @@ public interface CanhBaoRepository extends JpaRepository<CanhBao, Long> {
             "ORDER BY c.thoiGianGui DESC")
     List<CanhBao> findNotificationsForAdmin();
 
+    // Lọc trùng cảnh báo
+    boolean existsByTaiKhoanTaiKhoanIdAndBaoCaoSuCoBaoCaoIdAndLoaiCanhBao(
+            Long taiKhoanId,
+            Long baoCaoId,
+            String loaiCanhBao
+    );
 }

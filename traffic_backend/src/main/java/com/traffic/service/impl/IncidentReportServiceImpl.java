@@ -626,7 +626,7 @@ public class IncidentReportServiceImpl implements IncidentReportService {
         return false;
     }
 
-    private void notifyNearbyUsers(BaoCaoSuCo bc) {
+    public void notifyNearbyUsers(BaoCaoSuCo bc) {
         if (bc == null || bc.getViDo() == null || bc.getKinhDo() == null) return;
 
         List<TuyChonCaNhan> nearbyUsers =
@@ -642,7 +642,13 @@ public class IncidentReportServiceImpl implements IncidentReportService {
                     receiver.getTaiKhoanId().equals(bc.getTaiKhoan().getTaiKhoanId())) {
                 continue;
             }
+            boolean existed = canhBaoRepository.existsByTaiKhoanTaiKhoanIdAndBaoCaoSuCoBaoCaoIdAndLoaiCanhBao(
+                    receiver.getTaiKhoanId(),
+                    bc.getBaoCaoId(),
+                    "SU_CO_GAN_BAN"
+            );
 
+            if (existed) continue;
             CanhBao cb = new CanhBao();
             cb.setTaiKhoan(receiver);
             cb.setBaoCaoSuCo(bc);

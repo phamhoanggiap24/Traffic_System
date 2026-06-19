@@ -8,6 +8,7 @@ import com.traffic.repository.BaoCaoSuCoRepository;
 import com.traffic.repository.TaiKhoanRepository;
 import com.traffic.service.EmailService;
 import com.traffic.service.TrafficService;
+import com.traffic.service.impl.IncidentReportServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -34,6 +35,9 @@ public class ReportStatusScheduler {
     @Autowired
     private TrafficService trafficService;
 
+    @Autowired
+    private IncidentReportServiceImpl incidentReportService;
+
     @Scheduled(fixedRate = 60000)
     @Transactional
     public void processAutoVerifyAndExpired() {
@@ -57,6 +61,7 @@ public class ReportStatusScheduler {
                     }
                 }
                 baoCaoSuCoRepository.save(bc);
+                incidentReportService.notifyNearbyUsers(bc);
                 if (user != null && user.getEmail() != null && !user.getEmail().trim().isEmpty()) {
                     try {
                         String tenDuong = trafficService.getStreetName(bc.getViDo(), bc.getKinhDo());
