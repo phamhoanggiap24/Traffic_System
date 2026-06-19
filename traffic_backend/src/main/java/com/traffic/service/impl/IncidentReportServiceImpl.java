@@ -518,13 +518,12 @@ public class IncidentReportServiceImpl implements IncidentReportService {
 
         // Tính toán mốc thời gian cố định bằng Java
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime timeLimit30 = now.minusMinutes(5);
-        LocalDateTime timeLimit60 = now.minusMinutes(5);
+        LocalDateTime timeLimit5 = now.minusMinutes(5);
 
         // LỌC TÌM KIẾM THEO TAB "QUÁ HẠN" ảo
         if ("QUA_HAN".equals(status)) {
             return baoCaoSuCoRepository.findExpiredReports(
-                            incidentTypeId, username, start, end, timeLimit30, timeLimit60, pageable)
+                            incidentTypeId, username, start, end, timeLimit5, pageable)
                     .map(item -> {
                         ReportResponse dto = mapToDTO(item);
                         dto.setTrangThai(ReportStatus.valueOf("NGHI_VAN"));
@@ -535,7 +534,7 @@ public class IncidentReportServiceImpl implements IncidentReportService {
         // LỌC TÌM KIẾM THEO TAB "NGHI VẤN" (Chỉ lấy các bài chưa quá hạn, KO dùng chung findWithFilters nữa)
         if ("NGHI_VAN".equals(status)) {
             return baoCaoSuCoRepository.findActiveSuspectReports(
-                            incidentTypeId, username, start, end, timeLimit30, timeLimit60, pageable)
+                            incidentTypeId, username, start, end, timeLimit5, pageable)
                     .map(this::mapToDTO); // Trả ra data sạch 100%, không bao giờ chứa phần tử null
         }
 
@@ -577,11 +576,10 @@ public class IncidentReportServiceImpl implements IncidentReportService {
 
         // TÍNH TOÁN MỐC THỜI GIAN TRƯỚC KHI TRUYỀN VÀO REPOSITORY JPQL
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime timeLimit30 = now.minusMinutes(5);
-        LocalDateTime timeLimit60 = now.minusMinutes(5);
+        LocalDateTime timeLimit5 = now.minusMinutes(5);
 
         Page<BaoCaoSuCo> expiredPage = baoCaoSuCoRepository.findExpiredReports(
-                loaiSuCoId, tenDangNhap, start, end, timeLimit30, timeLimit60, pageable
+                loaiSuCoId, tenDangNhap, start, end, timeLimit5, pageable
         );
 
         return expiredPage.map(this::mapToDTO);
